@@ -1,0 +1,11 @@
+/home/ssy/compiler/lv1/l1_finish_rust/target/debug/deps/libstring_cache-37348d8dc0473632.rmeta: /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/lib.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/atom.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/dynamic_set.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/static_sets.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/trivial_impls.rs
+
+/home/ssy/compiler/lv1/l1_finish_rust/target/debug/deps/libstring_cache-37348d8dc0473632.rlib: /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/lib.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/atom.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/dynamic_set.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/static_sets.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/trivial_impls.rs
+
+/home/ssy/compiler/lv1/l1_finish_rust/target/debug/deps/string_cache-37348d8dc0473632.d: /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/lib.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/atom.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/dynamic_set.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/static_sets.rs /home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/trivial_impls.rs
+
+/home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/lib.rs:
+/home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/atom.rs:
+/home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/dynamic_set.rs:
+/home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/static_sets.rs:
+/home/ssy/.cargo/registry/src/mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/string_cache-0.8.7/src/trivial_impls.rs:

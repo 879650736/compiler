@@ -1,0 +1,1 @@
+/root/compiler/main_rust/target/debug/main_rust: /root/compiler/main_rust/build.rs /root/compiler/main_rust/src/main.rs /root/compiler/main_rust/target/debug/build/main_rust-879f0c319d89de1a/out/sysy.rs
