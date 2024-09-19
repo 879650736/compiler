@@ -6,3 +6,6 @@
 
 # 忽略所有子目录中的 .vscode 文件夹
 **/.vscode/
+
+# 忽略所有子目录中的 target 文件夹
+**/target/
