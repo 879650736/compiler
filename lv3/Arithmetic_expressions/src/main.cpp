@@ -13,7 +13,7 @@
 #include "ast.h"
 
 using namespace std;
-static int j = 0;
+static int reg_count_rv = 0;
 
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program,std::ostream &out);
@@ -130,7 +130,7 @@ void Visit(const koopa_raw_return_t &ret,std::ostream &out) {
         out << "\tret\n";
         break;
         case KOOPA_RVT_BINARY:
-        out << "\tmv a0, t" << j-1 << "\n";
+        out << "\tmv a0, t" << reg_count_rv-1 << "\n";
         out << "\tret\n";
         break;
         default:
@@ -203,7 +203,7 @@ switch (r_kind) {
     switch (op)
     {
     case KOOPA_RBO_EQ:
-        out << "\tli t" << j << ", ";
+        out << "\tli t" << reg_count_rv << ", ";
         if (l_value)
         {
             out << l_value << "\n";
@@ -211,7 +211,7 @@ switch (r_kind) {
         {
             out << "x0\n";
         }
-        out << "\txor t" << j << ", t" << j << ", ";
+        out << "\txor t" << reg_count_rv << ", t" << reg_count_rv << ", ";
         if (r_value)
         {
             out << r_value << "\n";
@@ -219,11 +219,11 @@ switch (r_kind) {
         {
             out << "x0\n";
         }
-        out << "\tseqz t" << j << ", t" << j << "\n";
-        j++;
+        out << "\tseqz t" << reg_count_rv << ", t" << reg_count_rv << "\n";
+        reg_count_rv++;
         break;
     case KOOPA_RBO_SUB:
-        out << "\tsub t" << j << ", ";
+        out << "\tsub t" << reg_count_rv << ", ";
         if (l_value)
         {
             out << l_value;
@@ -231,8 +231,8 @@ switch (r_kind) {
         {
             out << "x0";
         }
-        out << ", t" << j-1 << "\n";
-        j++;
+        out << ", t" << reg_count_rv-1 << "\n";
+        reg_count_rv++;
         break;
     default:
         break;
