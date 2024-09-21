@@ -13,7 +13,7 @@
 #include "ast.h"
 
 using namespace std;
-
+static int j = 0;
 
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program,std::ostream &out);
@@ -36,6 +36,8 @@ void Visit(const koopa_raw_return_t &ret,std::ostream &out);
 // 处理 integer 指令
 void Visit(const koopa_raw_integer_t &integer,std::ostream &out);
 
+//处理 binary 指令
+void Visit(const koopa_raw_binary_t &binary,std::ostream &out);
 
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program,std::ostream &out = std::cout) {
@@ -65,7 +67,7 @@ void Visit(const koopa_raw_slice_t &slice,std::ostream &out = std::cout) {
         Visit(reinterpret_cast<koopa_raw_value_t>(ptr),out);
         break;
         default:
-        // 我们暂时不会遇到其他内容, 于是不对其做任何处理
+        
         assert(false);
     }
     }
@@ -95,6 +97,7 @@ void Visit(const koopa_raw_basic_block_t &bb,std::ostream &out) {
 void Visit(const koopa_raw_value_t &value,std::ostream &out) {
   // 根据指令类型判断后续需要如何访问
     const auto &kind = value->kind;
+    //cout << kind.tag;//三个KOOPA_RVT_BINARY，一个KOOPA_RVT_RETURN
     switch (kind.tag) {
     case KOOPA_RVT_RETURN:
       // 访问 return 指令
@@ -104,9 +107,14 @@ void Visit(const koopa_raw_value_t &value,std::ostream &out) {
       // 访问 integer 指令
         Visit(kind.data.integer,out);
         break;
+    case KOOPA_RVT_BINARY:
+      // 访问 integer 指令
+        Visit(kind.data.binary,out);
+        break;
     default:
       // 其他类型暂时遇不到
-        assert(false);
+        //assert(false);
+        ;
     }
 }
 
@@ -115,16 +123,120 @@ void Visit(const koopa_raw_return_t &ret,std::ostream &out) {
     // 访问 return 指令中包含的返回值
     auto ret_value = ret.value;
     // 示例程序中, ret_value 一定是一个 integer
-    assert(ret_value->kind.tag == KOOPA_RVT_INTEGER);
-    // 处理 integer 指令
-    Visit(ret_value->kind.data.integer,out);
-    out << "\tret\n";
+    //cout << ret_value->kind.tag;//12 KOOPA_RVT_ZERO_INIT KOOPA_RVT_UNDEF
+    switch (ret_value->kind.tag){
+        case KOOPA_RVT_INTEGER:
+        Visit(ret_value->kind.data.integer,out);
+        out << "\tret\n";
+        break;
+        case KOOPA_RVT_BINARY:
+        out << "\tmv a0, t" << j-1 << "\n";
+        out << "\tret\n";
+        break;
+        default:
+        cout << "undefine return action\n";
+        break;
+    }
+    
+    
 }
 
 // 处理 integer 指令
 void Visit(const koopa_raw_integer_t &integer,std::ostream &out) {
     int32_t int_val = integer.value;
     out << "\tli a0, " << int_val << "\n";
+}
+
+//处理 binary 指令
+void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
+    auto op = binary.op;
+    //cout << op;   //177 KOOPA_RBO_EQ KOOPA_RBO_SUB KOOPA_RBO_SUB
+    auto lhs = binary.lhs;
+    auto rhs = binary.rhs;
+    auto l_kind = lhs->kind.tag;
+    auto r_kind = rhs->kind.tag;
+    int32_t l_value;
+    int32_t r_value;
+    if (l_kind == KOOPA_RVT_INTEGER)
+    {
+        l_value = lhs->kind.data.integer.value;
+    }
+    else
+    {
+        l_value = 0;
+    }
+    
+    if (r_kind == KOOPA_RVT_INTEGER)
+    {
+        r_value = rhs->kind.data.integer.value;
+    }
+    else
+    {
+        r_value = 0;
+    }
+
+/*
+switch (l_kind) {
+    case KOOPA_RVT_INTEGER:  // lhs 的指令类型为 INTEGER
+        std::cout << "lhs is INTEGER" << std::endl;
+        break;
+    case KOOPA_RVT_RETURN:   // lhs 的指令类型为 RETURN
+        std::cout << "lhs is RETURN" << std::endl;
+        break;
+    case KOOPA_RVT_BINARY:
+        std::cout << "rhs is BINARY" << std::endl;
+        break;
+}
+
+switch (r_kind) {
+    case KOOPA_RVT_INTEGER:  // rhs 的指令类型为 INTEGER
+        std::cout << "rhs is INTEGER" << std::endl;
+        break;
+    case KOOPA_RVT_RETURN:   // rhs 的指令类型为 RETURN
+        std::cout << "rhs is RETURN" << std::endl;
+        break;
+    case KOOPA_RVT_BINARY:
+        std::cout << "rhs is BINARY" << std::endl;
+        break;
+}
+*/
+    switch (op)
+    {
+    case KOOPA_RBO_EQ:
+        out << "\tli t" << j << ", ";
+        if (l_value)
+        {
+            out << l_value << "\n";
+        }else
+        {
+            out << "x0\n";
+        }
+        out << "\txor t" << j << ", t" << j << ", ";
+        if (r_value)
+        {
+            out << r_value << "\n";
+        }else
+        {
+            out << "x0\n";
+        }
+        out << "\tseqz t" << j << ", t" << j << "\n";
+        j++;
+        break;
+    case KOOPA_RBO_SUB:
+        out << "\tsub t" << j << ", ";
+        if (l_value)
+        {
+            out << l_value;
+        }else
+        {
+            out << "x0";
+        }
+        out << ", t" << j-1 << "\n";
+        j++;
+        break;
+    default:
+        break;
+    }
 }
 
 extern FILE *yyin;
