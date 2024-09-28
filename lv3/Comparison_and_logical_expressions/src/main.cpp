@@ -265,7 +265,24 @@ switch (r_kind) {
         out << "\tadd t" << reg_count_rv-1 << ", t" << reg_count_rv-2;
         out << ", t" << reg_count_rv-1 << "\n";
         break;
-
+    case KOOPA_RBO_LE:
+        if (l_value)
+        {
+            out << "\tli t" << reg_count_rv << ", ";
+            out << l_value << "\n";
+            reg_count_rv++;
+        }
+        if (r_value)
+        {
+            out << "\tli t" << reg_count_rv << ", ";
+            out << r_value << "\n";
+            reg_count_rv++;
+        }
+        out << "\tsgt t" << reg_count_rv-1 << ", t" << reg_count_rv-2;
+        out << ", t" << reg_count_rv-1 << "\n";
+        out << "\tsgt t" << reg_count_rv-1 << ", t" << reg_count_rv-1;
+        out << "\n";
+        break;
     default:
         break;
     }
