@@ -97,7 +97,7 @@ void Visit(const koopa_raw_basic_block_t &bb,std::ostream &out) {
 void Visit(const koopa_raw_value_t &value,std::ostream &out) {
   // 根据指令类型判断后续需要如何访问
     const auto &kind = value->kind;
-    //cout << kind.tag;//三个KOOPA_RVT_BINARY，一个KOOPA_RVT_RETURN
+    cout <<"kind.tag:" << kind.tag << "\n";//2个KOOPA_RVT_BINARY，一个KOOPA_RVT_RETURN
     switch (kind.tag) {
     case KOOPA_RVT_RETURN:
       // 访问 return 指令
@@ -108,12 +108,11 @@ void Visit(const koopa_raw_value_t &value,std::ostream &out) {
         Visit(kind.data.integer,out);
         break;
     case KOOPA_RVT_BINARY:
-      // 访问 integer 指令
+      // 访问 binary 指令
         Visit(kind.data.binary,out);
         break;
     default:
-      // 其他类型暂时遇不到
-        //assert(false);
+
         ;
     }
 }
@@ -150,7 +149,7 @@ void Visit(const koopa_raw_integer_t &integer,std::ostream &out) {
 //处理 binary 指令
 void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
     auto op = binary.op;
-    //cout << op;   //177 KOOPA_RBO_EQ KOOPA_RBO_SUB KOOPA_RBO_SUB
+    cout << "op:" << op << "\n";   //KOOPA_RBO_MUL KOOPA_RBO_ADD
     auto lhs = binary.lhs;
     auto rhs = binary.rhs;
     auto l_kind = lhs->kind.tag;
@@ -234,6 +233,39 @@ switch (r_kind) {
         out << ", t" << reg_count_rv-1 << "\n";
         reg_count_rv++;
         break;
+    case KOOPA_RBO_MUL:
+        if (l_value)
+        {
+            out << "\tli t" << reg_count_rv << ", ";
+            out << l_value << "\n";
+            reg_count_rv++;
+        }
+        if (r_value)
+        {
+            out << "\tli t" << reg_count_rv << ", ";
+            out << r_value << "\n";
+            reg_count_rv++;
+        }
+        out << "\tmul t" << reg_count_rv-1 << ", t" << reg_count_rv-2;
+        out << ", t" << reg_count_rv-1 << "\n";
+        break;
+    case KOOPA_RBO_ADD:
+        if (l_value)
+        {
+            out << "\tli t" << reg_count_rv << ", ";
+            out << l_value << "\n";
+            reg_count_rv++;
+        }
+        if (r_value)
+        {
+            out << "\tli t" << reg_count_rv << ", ";
+            out << r_value << "\n";
+            reg_count_rv++;
+        }
+        out << "\tadd t" << reg_count_rv-1 << ", t" << reg_count_rv-2;
+        out << ", t" << reg_count_rv-1 << "\n";
+        break;
+
     default:
         break;
     }
