@@ -294,7 +294,7 @@ extern int yyparse(unique_ptr<BaseAST> &ast);
 int main(int argc, const char *argv[]) {
 
 assert(argc == 5);
-auto mode = argv[1];
+std::string mode = argv[1];
 auto input = argv[2];
 auto output = argv[4];
 
@@ -305,7 +305,27 @@ unique_ptr<BaseAST> ast;
 auto ret = yyparse(ast);
 assert(!ret);
 
+cout << "mode:" << mode << "\n";
 
+std::string mode_koopa = "-koopa";
+std::string mode_rv = "-riscv";
+
+if (mode == mode_koopa)
+{
+// dump AST
+std::ofstream koopa_ir_file(output);
+if (koopa_ir_file.is_open()) {
+        ast->Dump(koopa_ir_file);
+        koopa_ir_file.close();
+        std::cout << "Koopa IR successfully written to output.koopa" << std::endl;
+    } else {
+        std::cerr << "Failed to open file for writing Koopa IR." << std::endl;
+    }
+cout << endl;
+}
+
+if (mode == mode_rv)
+{
 // dump AST
 std::ofstream koopa_ir_file("output.koopa");
 if (koopa_ir_file.is_open()) {
@@ -362,6 +382,7 @@ cout << endl;
 // 注意, raw program 中所有的指针指向的内存均为 raw program builder 的内存
 // 所以不要在 raw program 处理完毕之前释放 builder
 koopa_delete_raw_program_builder(builder);
+}
 
 cout << "finish" <<endl;
 }
