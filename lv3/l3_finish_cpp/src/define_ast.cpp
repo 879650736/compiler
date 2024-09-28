@@ -11,11 +11,13 @@
 
 static int reg_count_koopa = 0;
 static int op_id = 0;
+static int brackets_number = 0;
+static int unary_number = 0;
 
 static bool unaryop = false;
 
-static std::stack<std::string> UnaryopStack; // 操作符栈
-static std::stack<int> numberStack; // 数字栈
+//static std::stack<std::string> UnaryopStack; // 操作符栈
+//static std::stack<int> numberStack; // 数字栈
 //static std::queue<int> intQueue;    //数字队列
 
 // 定义一个可以存储 string 和 int 的 variant 类型
@@ -23,11 +25,12 @@ static std::stack<int> numberStack; // 数字栈
 
     // 创建一个 vector 来存储 StringOrInt 类型的元素
     static std::vector<StringOrInt> vec;
-
+    static std::vector<StringOrInt> unary_vec;
 static void printUnaryopStack(std::stack<std::string> UnaryopStack);
 static void printNumberStack(std::stack<int> numberStack);
-static void GenerateIRCode(std::ostream &out); // 前向声明
+static void GenerateIRCode(std::ostream &out);
 static void PrintVector(const std::vector<StringOrInt>& vec);
+static void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec);
 //static void build_child_tree();
 
 // 所有 AST 的基类
@@ -43,13 +46,15 @@ public:
     int number;
     void Dump(std::ostream &out = std::cout) const override {
         std::cout << "number:" << number << std::endl;
-        numberStack.push(number);
+        if(unaryop)
+        unary_vec.emplace_back(number);
         //std::cout << op_id << "NumberAST\n";
         //intQueue.push(number);
         if(!unaryop)
         vec.emplace_back(number);
         else{
-        std::string unarynumber = "%" + std::to_string(reg_count_koopa);
+        std::string unarynumber = "%" + std::to_string(unary_number);
+        unary_number++;
         std::cout << "unarynumber:" << unarynumber << std::endl;
         vec.emplace_back(unarynumber);
         }
@@ -63,7 +68,7 @@ public:
     std::string op;
 
     void Dump(std::ostream &out = std::cout) const override {
-        UnaryopStack.push(op); 
+        unary_vec.emplace_back(op);
         unaryop = true;
         
         
@@ -85,10 +90,17 @@ public:
     using NumPtr = std::unique_ptr<NumberAST>;
     std::variant<ExpPtr, NumPtr> expr; // 使用 unique_ptr
 
-    void Dump(std::ostream &out = std::cout) const override {
+    void Dump(std::ostream &out) const override {
         std::visit([&out](auto &&arg) {
             using T = std::decay_t<decltype(arg)>;
-            arg->Dump(out);
+            if constexpr (std::is_same_v<T, std::unique_ptr<ExpAST>>) {
+                brackets_number = brackets_number + 2;
+                vec.emplace_back("(");
+                arg->Dump(out);  // 处理 ExpAST
+                vec.emplace_back(")");
+            } else {
+                arg->Dump(out);  // 处理 NumberAST
+            }
         }, expr);
     }
 };
@@ -325,8 +337,7 @@ public:
     //build_child_tree();
     //root->PrintTree();
     PrintVector(vec);std::cout << "\n";
-    printUnaryopStack(UnaryopStack);
-    printNumberStack(numberStack);
+
     GenerateIRCode(out);
     PrintVector(vec);std::cout << "\n";
     out <<"\t" << "ret %" << reg_count_koopa-1;
@@ -375,19 +386,96 @@ void GenerateIRCode(std::ostream &out = std::cout) {
         }
     }
 
+    deal_arithmetic_expressions(out,vec);
+}
 
+    
+
+void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec){
     int l_value;
     int r_value;
     std::string op;
     std::string reg;
-    int max_op = vec.size() / 2;
+    int max_op = (vec.size() - brackets_number) / 2;
     //std::cout << "vec.size()" << "\t" << vec.size() << "\n";
     std::cout << "op_id:" << op_id << "\t" << "max_op:" <<max_op << "\n";
-
-
-for (size_t i = 0; i < max_op;)
+    for (size_t i = 0; i < max_op;)
 {
     bool found_operator = false;
+    for (size_t j = 0; j < vec.size(); ++j) {
+        // 找到 ()
+        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "(") {
+            std::vector<StringOrInt> newVec;
+            size_t openParenIndex = -1; // 用于记录左括号的索引
+
+        // 找到左括号的索引
+        for (size_t j = 0; j < vec.size(); ++j) {
+            if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "(") {
+                openParenIndex = j;
+                break;
+            }
+        }
+        // 如果找到了左括号
+        if (openParenIndex != -1) {
+            // 从左括号开始遍历，直到找到右括号
+            for (size_t j = openParenIndex + 1; j < vec.size(); ++j) {
+                if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == ")") {
+                    // 找到右括号，结束循环
+                    break;
+                }
+                // 添加操作数到新向量
+            newVec.push_back(vec[j]);
+            }
+        }   
+            brackets_number = brackets_number - 2;
+            std::cout << "newvec:\n";
+            PrintVector(newVec);
+            // 删除原 vector 中的 () 和其包含的数
+            vec.erase(vec.begin() + openParenIndex, vec.begin() + openParenIndex + newVec.size() + 2);
+            std::string unarynumber = "%" + std::to_string(reg_count_koopa);
+            std::cout << "unarynumber:" << unarynumber << std::endl;
+            vec.emplace_back(unarynumber);
+            PrintVector(vec);
+            int op_number = (newVec.size() + 2) / 3 ;
+            std::cout << "op_number:" << op_number << "\n";
+            i = i + op_number;
+            deal_arithmetic_expressions(out,newVec);
+            //PrintVector(vec);std::cout << "\n";
+            //found_operator = true;
+            break;
+        }
+    }
+    for (size_t j = 0; j < vec.size(); ++j) {
+        // 找到 /
+        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "/") {
+            op = "/";
+            out << "\t%" << reg_count_koopa << " = div ";
+            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
+                l_value = std::get<int>(vec[j - 1]);
+                out << l_value << " , ";
+            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
+                // 处理左值为字符串的情况
+                std::string left_reg = std::get<std::string>(vec[j - 1]);
+                out << left_reg << " , ";
+            }
+            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
+                r_value = std::get<int>(vec[j + 1]);
+                out << r_value << "\n";
+            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
+                // 处理右值为字符串的情况
+                std::string right_reg = std::get<std::string>(vec[j + 1]);
+                out << right_reg << "\n";
+            }
+            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
+            reg = "%"  + std::to_string(reg_count_koopa);
+            reg_count_koopa++;
+            vec.insert(vec.begin() + j - 1, reg);
+            i++;
+            found_operator = true; 
+            //PrintVector(vec);std::cout << "\n";
+            break;
+        }
+    }
     for (size_t j = 0; j < vec.size(); ++j) {
         // 找到 *
         if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "*") {
@@ -419,7 +507,37 @@ for (size_t i = 0; i < max_op;)
             //PrintVector(vec);std::cout << "\n";
             break;
         }
-        
+    }
+    for (size_t j = 0; j < vec.size(); ++j) {
+        // 找到 %
+        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "%") {
+            op = "%";
+            out << "\t%" << reg_count_koopa << " = mod ";
+            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
+                l_value = std::get<int>(vec[j - 1]);
+                out << l_value << " , ";
+            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
+                // 处理左值为字符串的情况
+                std::string left_reg = std::get<std::string>(vec[j - 1]);
+                out << left_reg << " , ";
+            }
+            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
+                r_value = std::get<int>(vec[j + 1]);
+                out << r_value << "\n";
+            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
+                // 处理右值为字符串的情况
+                std::string right_reg = std::get<std::string>(vec[j + 1]);
+                out << right_reg << "\n";
+            }
+            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
+            reg = "%"  + std::to_string(reg_count_koopa);
+            reg_count_koopa++;
+            vec.insert(vec.begin() + j - 1, reg);
+            i++;
+            found_operator = true; 
+            //PrintVector(vec);std::cout << "\n";
+            break;
+        }
     }
     for (size_t j = 0; j < vec.size(); ++j) {
         // 找到 +
@@ -484,161 +602,6 @@ for (size_t i = 0; i < max_op;)
         }
     }
     for (size_t j = 0; j < vec.size(); ++j) {
-        // 找到 /
-        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "/") {
-            op = "/";
-            out << "\t%" << reg_count_koopa << " = div ";
-            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
-                l_value = std::get<int>(vec[j - 1]);
-                out << l_value << " , ";
-            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
-                // 处理左值为字符串的情况
-                std::string left_reg = std::get<std::string>(vec[j - 1]);
-                out << left_reg << " , ";
-            }
-            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
-                r_value = std::get<int>(vec[j + 1]);
-                out << r_value << "\n";
-            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
-                // 处理右值为字符串的情况
-                std::string right_reg = std::get<std::string>(vec[j + 1]);
-                out << right_reg << "\n";
-            }
-            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
-            reg = "%"  + std::to_string(reg_count_koopa);
-            reg_count_koopa++;
-            vec.insert(vec.begin() + j - 1, reg);
-            i++;
-            found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
-            break;
-        }
-    }
-    for (size_t j = 0; j < vec.size(); ++j) {
-        // 找到 /
-        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "%") {
-            op = "%";
-            out << "\t%" << reg_count_koopa << " = mod ";
-            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
-                l_value = std::get<int>(vec[j - 1]);
-                out << l_value << " , ";
-            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
-                // 处理左值为字符串的情况
-                std::string left_reg = std::get<std::string>(vec[j - 1]);
-                out << left_reg << " , ";
-            }
-            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
-                r_value = std::get<int>(vec[j + 1]);
-                out << r_value << "\n";
-            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
-                // 处理右值为字符串的情况
-                std::string right_reg = std::get<std::string>(vec[j + 1]);
-                out << right_reg << "\n";
-            }
-            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
-            reg = "%"  + std::to_string(reg_count_koopa);
-            reg_count_koopa++;
-            vec.insert(vec.begin() + j - 1, reg);
-            i++;
-            found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
-            break;
-        }
-    }
-    for (size_t j = 0; j < vec.size(); ++j) {
-        // 找到 <=
-        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "<=") {
-            op = "<=";
-            out << "\t%" << reg_count_koopa << " = le ";
-            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
-                l_value = std::get<int>(vec[j - 1]);
-                out << l_value << " , ";
-            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
-                // 处理左值为字符串的情况
-                std::string left_reg = std::get<std::string>(vec[j - 1]);
-                out << left_reg << " , ";
-            }
-            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
-                r_value = std::get<int>(vec[j + 1]);
-                out << r_value << "\n";
-            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
-                // 处理右值为字符串的情况
-                std::string right_reg = std::get<std::string>(vec[j + 1]);
-                out << right_reg << "\n";
-            }
-            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
-            reg = "%"  + std::to_string(reg_count_koopa);
-            reg_count_koopa++;
-            vec.insert(vec.begin() + j - 1, reg);
-            i++;
-            found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
-            break;
-        }
-    }
-    for (size_t j = 0; j < vec.size(); ++j) {
-        // 找到 ==
-        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "==") {
-            op = "==";
-            out << "\t%" << reg_count_koopa << " = eq ";
-            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
-                l_value = std::get<int>(vec[j - 1]);
-                out << l_value << " , ";
-            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
-                // 处理左值为字符串的情况
-                std::string left_reg = std::get<std::string>(vec[j - 1]);
-                out << left_reg << " , ";
-            }
-            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
-                r_value = std::get<int>(vec[j + 1]);
-                out << r_value << "\n";
-            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
-                // 处理右值为字符串的情况
-                std::string right_reg = std::get<std::string>(vec[j + 1]);
-                out << right_reg << "\n";
-            }
-            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
-            reg = "%"  + std::to_string(reg_count_koopa);
-            reg_count_koopa++;
-            vec.insert(vec.begin() + j - 1, reg);
-            i++;
-            found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
-            break;
-        }
-    }
-    for (size_t j = 0; j < vec.size(); ++j) {
-        // 找到 !=
-        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "!=") {
-            op = "!=";
-            out << "\t%" << reg_count_koopa << " = ne ";
-            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
-                l_value = std::get<int>(vec[j - 1]);
-                out << l_value << " , ";
-            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
-                // 处理左值为字符串的情况
-                std::string left_reg = std::get<std::string>(vec[j - 1]);
-                out << left_reg << " , ";
-            }
-            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
-                r_value = std::get<int>(vec[j + 1]);
-                out << r_value << "\n";
-            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
-                // 处理右值为字符串的情况
-                std::string right_reg = std::get<std::string>(vec[j + 1]);
-                out << right_reg << "\n";
-            }
-            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
-            reg = "%"  + std::to_string(reg_count_koopa);
-            reg_count_koopa++;
-            vec.insert(vec.begin() + j - 1, reg);
-            i++;
-            found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
-            break;
-        }
-    }
-    for (size_t j = 0; j < vec.size(); ++j) {
         // 找到 >
         if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == ">") {
             op = ">";
@@ -674,6 +637,37 @@ for (size_t i = 0; i < max_op;)
         if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == ">=") {
             op = ">=";
             out << "\t%" << reg_count_koopa << " = ge ";
+            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
+                l_value = std::get<int>(vec[j - 1]);
+                out << l_value << " , ";
+            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
+                // 处理左值为字符串的情况
+                std::string left_reg = std::get<std::string>(vec[j - 1]);
+                out << left_reg << " , ";
+            }
+            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
+                r_value = std::get<int>(vec[j + 1]);
+                out << r_value << "\n";
+            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
+                // 处理右值为字符串的情况
+                std::string right_reg = std::get<std::string>(vec[j + 1]);
+                out << right_reg << "\n";
+            }
+            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
+            reg = "%"  + std::to_string(reg_count_koopa);
+            reg_count_koopa++;
+            vec.insert(vec.begin() + j - 1, reg);
+            i++;
+            found_operator = true; 
+            //PrintVector(vec);std::cout << "\n";
+            break;
+        }
+    }
+    for (size_t j = 0; j < vec.size(); ++j) {
+        // 找到 <=
+        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "<=") {
+            op = "<=";
+            out << "\t%" << reg_count_koopa << " = le ";
             if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
                 l_value = std::get<int>(vec[j - 1]);
                 out << l_value << " , ";
@@ -827,16 +821,76 @@ for (size_t i = 0; i < max_op;)
             break;
         }
     }
+    for (size_t j = 0; j < vec.size(); ++j) {
+        // 找到 ==
+        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "==") {
+            op = "==";
+            out << "\t%" << reg_count_koopa << " = eq ";
+            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
+                l_value = std::get<int>(vec[j - 1]);
+                out << l_value << " , ";
+            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
+                // 处理左值为字符串的情况
+                std::string left_reg = std::get<std::string>(vec[j - 1]);
+                out << left_reg << " , ";
+            }
+            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
+                r_value = std::get<int>(vec[j + 1]);
+                out << r_value << "\n";
+            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
+                // 处理右值为字符串的情况
+                std::string right_reg = std::get<std::string>(vec[j + 1]);
+                out << right_reg << "\n";
+            }
+            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
+            reg = "%"  + std::to_string(reg_count_koopa);
+            reg_count_koopa++;
+            vec.insert(vec.begin() + j - 1, reg);
+            i++;
+            found_operator = true; 
+            //PrintVector(vec);std::cout << "\n";
+            break;
+        }
+    }
+    for (size_t j = 0; j < vec.size(); ++j) {
+        // 找到 !=
+        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "!=") {
+            op = "!=";
+            out << "\t%" << reg_count_koopa << " = ne ";
+            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
+                l_value = std::get<int>(vec[j - 1]);
+                out << l_value << " , ";
+            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
+                // 处理左值为字符串的情况
+                std::string left_reg = std::get<std::string>(vec[j - 1]);
+                out << left_reg << " , ";
+            }
+            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
+                r_value = std::get<int>(vec[j + 1]);
+                out << r_value << "\n";
+            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
+                // 处理右值为字符串的情况
+                std::string right_reg = std::get<std::string>(vec[j + 1]);
+                out << right_reg << "\n";
+            }
+            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
+            reg = "%"  + std::to_string(reg_count_koopa);
+            reg_count_koopa++;
+            vec.insert(vec.begin() + j - 1, reg);
+            i++;
+            found_operator = true; 
+            //PrintVector(vec);std::cout << "\n";
+            break;
+        }
+    }
    // 如果在这一轮中没有找到任何有效的操作符，打印错误信息并退出循环
     if (!found_operator) {
         std::cerr << "Error: No valid operator (*, +, or <=) found in the values." << std::endl;
         break;  // 跳出循环，避免程序继续执行
     }
-}
-
-
-
     }
+    std::cout << "finish vec\n";
+}
 
 
 void PrintVector(const std::vector<StringOrInt>& vec) {
@@ -847,23 +901,11 @@ void PrintVector(const std::vector<StringOrInt>& vec) {
         }, element);
     }
 }
-
-// 打印操作符栈
-void printUnaryopStack(std::stack<std::string> UnaryopStack) {
-    std::cout << "操作符栈内容: ";
-    while (!UnaryopStack.empty()) {
-        std::cout << UnaryopStack.top() << " "; // 打印栈顶元素
-        UnaryopStack.pop(); // 弹出栈顶元素
+void PrintVector(const std::vector<StringOrInt>& unary_vec) {
+    std::cout << "unary_vec内容: \n";
+    for (const auto& element : vec) {
+        std::visit([](const auto& value) {
+            std::cout << value << std::endl;
+        }, element);
     }
-    std::cout << std::endl;
-}
-
-// 打印数字栈
-void printNumberStack(std::stack<int> numberStack) {
-    std::cout << "数字栈内容: ";
-    while (!numberStack.empty()) {
-        std::cout << numberStack.top() << " "; // 打印栈顶元素
-        numberStack.pop(); // 弹出栈顶元素
-    }
-    std::cout << std::endl;
 }
