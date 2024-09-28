@@ -13,6 +13,8 @@ static int reg_count_koopa = 0;
 static int op_id = 0;
 static int brackets_number = 0;
 static int unary_number = 0;
+static int unary_id = 0;
+static int once_number =1;
 
 static bool unaryop = false;
 
@@ -26,10 +28,10 @@ static bool unaryop = false;
     // 创建一个 vector 来存储 StringOrInt 类型的元素
     static std::vector<StringOrInt> vec;
     static std::vector<StringOrInt> unary_vec;
-static void printUnaryopStack(std::stack<std::string> UnaryopStack);
-static void printNumberStack(std::stack<int> numberStack);
+
 static void GenerateIRCode(std::ostream &out);
 static void PrintVector(const std::vector<StringOrInt>& vec);
+static void PrintUnaryVector(const std::vector<StringOrInt>& unary_vec);
 static void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec);
 //static void build_child_tree();
 
@@ -46,6 +48,7 @@ public:
     int number;
     void Dump(std::ostream &out = std::cout) const override {
         std::cout << "number:" << number << std::endl;
+        once_number = number;
         if(unaryop)
         unary_vec.emplace_back(number);
         //std::cout << op_id << "NumberAST\n";
@@ -340,50 +343,107 @@ public:
 
     GenerateIRCode(out);
     PrintVector(vec);std::cout << "\n";
-    out <<"\t" << "ret %" << reg_count_koopa-1;
-    out << "\n";
-    out << "}";
+    if(reg_count_koopa >= 1){
+        out <<"\t" << "ret %" << reg_count_koopa-1;
+        out << "\n";
+        out << "}";
+    }
+    else{
+        out <<"\t" << "ret " << once_number;
+        out << "\n";
+        out << "}";
+    }
+    
     }
 };
 
-void GenerateIRCode(std::ostream &out = std::cout) {
-    while (!UnaryopStack.empty()) {
+void GenerateIRCode(std::ostream &out) {
+    int number;
+    std::string op;
+    bool flag_once = true;
+    const std::string add = "+";
+    const std::string sub = "-";
+    const std::string no = "!";
+    PrintUnaryVector(unary_vec);
+    while (!unary_vec.empty()) {
+        for (size_t j = 0; j < unary_vec.size(); ++j) {
+        // 找到 number
+        if (std::holds_alternative<int>(unary_vec[j])) {
+            number = std::get<int>(unary_vec[j]);
+            //std::cout << "number:" << number << std::endl;
+            bool foundPreviousNumber = false;
+            flag_once = true;
+            for (int k = j - 1; k >= 0; --k)
+            {
+                if (std::holds_alternative<std::string>(unary_vec[k])) {
+                    foundPreviousNumber = true;
+                    op = std::get<std::string>(unary_vec[k]);
+                    if (flag_once)
+                    {
 
-        std::string op = UnaryopStack.top();
-        UnaryopStack.pop();
-        if (reg_count_koopa == 0)
-        {
-            int number = numberStack.top();
-            numberStack.pop();
-            if (op == "+")
-            ;
-            else if (op == "-")
-            {
-                out <<"\t%0" << " = sub 0 , " << number << "\n";
-                reg_count_koopa++;
+                        if (op == add){
+                            //std::cout << "op==add" <<std::endl;
+                            once_number = number; 
+                        }
+                        
+                        else if (op == sub)
+                        {   
+                            //std::cout << "op==sub" <<std::endl;
+                            out <<"\t%" << unary_id << " = sub 0 , " << number << "\n";
+                            reg_count_koopa++;
+                            unary_id++;
+                        }
+                        else if (op == no)
+                        {   
+                            //std::cout << "op==!" <<std::endl;
+                            out <<"\t%" << unary_id << " = eq " << number << ", 0" << "\n";
+                            reg_count_koopa++;
+                            unary_id++;
+                        }
+                        else{
+                            std::cerr << "Error: No found operate." << std::endl;
+                        }
+                    }
+                    else 
+                    {
+                        if (op == add){
+                            //std::cout << "op==add" <<std::endl;
+                            once_number = number;   
+                        }
+                        else if (op == sub)
+                        {
+                            //std::cout << "op==sub" <<std::endl;   
+                            out <<"\t%" << reg_count_koopa << " = sub 0 , %" << unary_id-1 << "\n";
+                            reg_count_koopa++;
+                            unary_id++;
+                        }
+                        else if (op == no)
+                        {
+                            //std::cout << "op==!" <<std::endl;   
+                            out <<"\t%" << reg_count_koopa << " = eq %" << unary_id-1 << ", 0" << "\n";
+                            reg_count_koopa++;
+                            unary_id++;
+                        }
+                        else{
+                            std::cerr << "Error: No found operate." << std::endl;
+                        }
+                    }
+                    flag_once = false;
+                
+                }
+                else if (std::holds_alternative<int>(unary_vec[k])) {
+                    break; 
+                }
+                if (foundPreviousNumber) {
+                //std::cerr << "Error: Two consecutive numbers found." << std::endl;
+                }
             }
-            else if (op == "!")
-            {
-                out <<"\t%0" << " = eq " << number << ", 0" << "\n";
-                reg_count_koopa++;
-            }
+            // 移除从 0 到找到的第一个数字的所有元素
+            unary_vec.erase(unary_vec.begin(), unary_vec.begin() + j + 1);
+            j = 0; // 重置索引以重新检查 unary_vec
+            PrintUnaryVector(unary_vec);
         }
-        else 
-        {
-            if (op == "+")
-            ;
-            else if (op == "-")
-            {
-                out <<"\t%" << reg_count_koopa << " = sub 0 , %" << reg_count_koopa-1 << "\n";
-                reg_count_koopa++;
-            }
-            
-            else if (op == "!")
-            {
-                out <<"\t%" << reg_count_koopa << " = eq %" << reg_count_koopa-1 << ", 0" << "\n";
-                reg_count_koopa++;
-            }
-        }
+    }
     }
 
     deal_arithmetic_expressions(out,vec);
@@ -432,14 +492,14 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             PrintVector(newVec);
             // 删除原 vector 中的 () 和其包含的数
             vec.erase(vec.begin() + openParenIndex, vec.begin() + openParenIndex + newVec.size() + 2);
-            std::string unarynumber = "%" + std::to_string(reg_count_koopa);
+            deal_arithmetic_expressions(out,newVec);
+            std::string unarynumber = "%" + std::to_string(reg_count_koopa - 1);
             std::cout << "unarynumber:" << unarynumber << std::endl;
-            vec.emplace_back(unarynumber);
+            vec.insert(vec.begin() + j, unarynumber);
             PrintVector(vec);
             int op_number = (newVec.size() + 2) / 3 ;
             std::cout << "op_number:" << op_number << "\n";
             i = i + op_number;
-            deal_arithmetic_expressions(out,newVec);
             //PrintVector(vec);std::cout << "\n";
             //found_operator = true;
             break;
@@ -726,6 +786,68 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
         }
     }
     for (size_t j = 0; j < vec.size(); ++j) {
+        // 找到 ==
+        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "==") {
+            op = "==";
+            out << "\t%" << reg_count_koopa << " = eq ";
+            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
+                l_value = std::get<int>(vec[j - 1]);
+                out << l_value << " , ";
+            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
+                // 处理左值为字符串的情况
+                std::string left_reg = std::get<std::string>(vec[j - 1]);
+                out << left_reg << " , ";
+            }
+            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
+                r_value = std::get<int>(vec[j + 1]);
+                out << r_value << "\n";
+            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
+                // 处理右值为字符串的情况
+                std::string right_reg = std::get<std::string>(vec[j + 1]);
+                out << right_reg << "\n";
+            }
+            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
+            reg = "%"  + std::to_string(reg_count_koopa);
+            reg_count_koopa++;
+            vec.insert(vec.begin() + j - 1, reg);
+            i++;
+            found_operator = true; 
+            //PrintVector(vec);std::cout << "\n";
+            break;
+        }
+    }
+    for (size_t j = 0; j < vec.size(); ++j) {
+        // 找到 !=
+        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "!=") {
+            op = "!=";
+            out << "\t%" << reg_count_koopa << " = ne ";
+            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
+                l_value = std::get<int>(vec[j - 1]);
+                out << l_value << " , ";
+            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
+                // 处理左值为字符串的情况
+                std::string left_reg = std::get<std::string>(vec[j - 1]);
+                out << left_reg << " , ";
+            }
+            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
+                r_value = std::get<int>(vec[j + 1]);
+                out << r_value << "\n";
+            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
+                // 处理右值为字符串的情况
+                std::string right_reg = std::get<std::string>(vec[j + 1]);
+                out << right_reg << "\n";
+            }
+            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
+            reg = "%"  + std::to_string(reg_count_koopa);
+            reg_count_koopa++;
+            vec.insert(vec.begin() + j - 1, reg);
+            i++;
+            found_operator = true; 
+            //PrintVector(vec);std::cout << "\n";
+            break;
+        }
+    }
+    for (size_t j = 0; j < vec.size(); ++j) {
         // 找到 ||
         if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "||") {
             op = "||";
@@ -821,71 +943,9 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             break;
         }
     }
-    for (size_t j = 0; j < vec.size(); ++j) {
-        // 找到 ==
-        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "==") {
-            op = "==";
-            out << "\t%" << reg_count_koopa << " = eq ";
-            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
-                l_value = std::get<int>(vec[j - 1]);
-                out << l_value << " , ";
-            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
-                // 处理左值为字符串的情况
-                std::string left_reg = std::get<std::string>(vec[j - 1]);
-                out << left_reg << " , ";
-            }
-            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
-                r_value = std::get<int>(vec[j + 1]);
-                out << r_value << "\n";
-            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
-                // 处理右值为字符串的情况
-                std::string right_reg = std::get<std::string>(vec[j + 1]);
-                out << right_reg << "\n";
-            }
-            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
-            reg = "%"  + std::to_string(reg_count_koopa);
-            reg_count_koopa++;
-            vec.insert(vec.begin() + j - 1, reg);
-            i++;
-            found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
-            break;
-        }
-    }
-    for (size_t j = 0; j < vec.size(); ++j) {
-        // 找到 !=
-        if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "!=") {
-            op = "!=";
-            out << "\t%" << reg_count_koopa << " = ne ";
-            if (j > 0 && std::holds_alternative<int>(vec[j - 1])) {
-                l_value = std::get<int>(vec[j - 1]);
-                out << l_value << " , ";
-            }else if (j > 0 && std::holds_alternative<std::string>(vec[j - 1])) {
-                // 处理左值为字符串的情况
-                std::string left_reg = std::get<std::string>(vec[j - 1]);
-                out << left_reg << " , ";
-            }
-            if (j + 1 < vec.size() && std::holds_alternative<int>(vec[j + 1])) {
-                r_value = std::get<int>(vec[j + 1]);
-                out << r_value << "\n";
-            }else if (j + 1 < vec.size() && std::holds_alternative<std::string>(vec[j + 1])) {
-                // 处理右值为字符串的情况
-                std::string right_reg = std::get<std::string>(vec[j + 1]);
-                out << right_reg << "\n";
-            }
-            vec.erase(vec.begin() + j - 1, vec.begin() + j + 2);
-            reg = "%"  + std::to_string(reg_count_koopa);
-            reg_count_koopa++;
-            vec.insert(vec.begin() + j - 1, reg);
-            i++;
-            found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
-            break;
-        }
-    }
    // 如果在这一轮中没有找到任何有效的操作符，打印错误信息并退出循环
     if (!found_operator) {
-        std::cerr << "Error: No valid operator (*, +, or <=) found in the values." << std::endl;
+        //std::cerr << "Error: No valid operator (*, +, or <=) found in the values." << std::endl;
         break;  // 跳出循环，避免程序继续执行
     }
     }
@@ -901,9 +961,9 @@ void PrintVector(const std::vector<StringOrInt>& vec) {
         }, element);
     }
 }
-void PrintVector(const std::vector<StringOrInt>& unary_vec) {
+void PrintUnaryVector(const std::vector<StringOrInt>& unary_vec) {
     std::cout << "unary_vec内容: \n";
-    for (const auto& element : vec) {
+    for (const auto& element : unary_vec) {
         std::visit([](const auto& value) {
             std::cout << value << std::endl;
         }, element);
