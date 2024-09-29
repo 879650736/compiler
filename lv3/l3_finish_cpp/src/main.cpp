@@ -29,8 +29,7 @@ struct BufferInfo {
     uint32_t len;         // 存储 buffer 的长度
 };
 
-static std::vector<BufferInfo> l_find_reg_info;
-static std::vector<BufferInfo> r_find_reg_info;
+static std::vector<BufferInfo> find_reg_info;
 
 static int incrementRegCount(int reg_count_rv);
 static void print_slice(const koopa_raw_slice_t &slice);
@@ -190,14 +189,11 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
     auto r_name = rhs->name;
     auto l_used_by = lhs->used_by;
     auto r_used_by = rhs->used_by;
-    //LOG("l_used_by:");
-    //print_slice(l_used_by);
-    //LOG("r_used_by:");
-    //print_slice(r_used_by);
-    insertToGlobal(l_used_by.buffer,l_used_by.len,reg_count_rv,l_find_reg_info);
-    insertToGlobal(r_used_by.buffer,r_used_by.len,reg_count_rv,r_find_reg_info);
-    printGlobalContents(l_find_reg_info);
-    printGlobalContents(r_find_reg_info);
+    LOG("l_used_by:");
+    print_slice(l_used_by);
+    LOG("r_used_by:");
+    print_slice(r_used_by);
+    
     int32_t l_value;
     int32_t r_value;
     if (l_kind == KOOPA_RVT_INTEGER)
@@ -208,7 +204,7 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
     }
     else if (l_kind == KOOPA_RVT_BINARY)
     {
-        l_binary_reg = findRegCountRv(lhs,l_find_reg_info);
+        l_binary_reg = findRegCountRv(lhs,find_reg_info);
         LOG("l_binary_reg:" << l_binary_reg);
         l_flag_int = false;
         l_binary_flag = true;
@@ -225,7 +221,7 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
     }
     else if (r_kind == KOOPA_RVT_BINARY)
     {
-        r_binary_reg = findRegCountRv(rhs,r_find_reg_info);
+        r_binary_reg = findRegCountRv(rhs,find_reg_info);
         LOG("r_binary_reg:" << r_binary_reg);
         r_flag_int = false;
         r_binary_flag = true;
@@ -235,6 +231,15 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
         l_value = 0;
     }
 
+    if(l_flag_int){
+        insertToGlobal(l_used_by.buffer,l_used_by.len,reg_count_rv,find_reg_info);
+    }else if(r_flag_int){
+        insertToGlobal(r_used_by.buffer,r_used_by.len,reg_count_rv,find_reg_info);
+    }else{
+        insertToGlobal(l_used_by.buffer,l_used_by.len,reg_count_rv,find_reg_info);
+    }
+    LOG("find_reg_info:");
+    printGlobalContents(find_reg_info);
 
 switch (l_kind) {
     case KOOPA_RVT_INTEGER:  // lhs 的指令类型为 INTEGER
@@ -262,24 +267,66 @@ switch (r_kind) {
 
     switch (op)
     {
-    case KOOPA_RBO_NOT_EQ:
-        
-        out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+    case KOOPA_RBO_OR:
         if (l_flag_int)
         {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
-        }else
-        {
-            out << "0\n";
+            reg_count_rv++;
         }
-        out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv) << ", ";
         if (r_flag_int)
         {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
-        }else
-        {
-            out << "0\n";
+            reg_count_rv++;
         }
+        if (l_flag_int && r_flag_int){
+            out << "\tor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+            reg_count_rv++;
+        }else if (l_binary_flag)
+        {
+            out << "\tor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
+        }else if (r_binary_flag)
+        {
+            out << "\tor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+        }else if (r_binary_flag && l_binary_flag){
+            out << "\tor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
+            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+        }
+
+    case KOOPA_RBO_NOT_EQ:
+        if (l_flag_int)
+        {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << l_value << "\n";
+            reg_count_rv++;
+        }
+        if (r_flag_int)
+        {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << r_value << "\n";
+            reg_count_rv++;
+        }
+        if (l_flag_int && r_flag_int){
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+            reg_count_rv++;
+        }else if (l_binary_flag)
+        {
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
+        }else if (r_binary_flag)
+        {
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+        }else if (r_binary_flag && l_binary_flag){
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
+            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+        }
+
         out << "\tsnez t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv) << "\n";
         reg_count_rv++;
         break;
@@ -447,7 +494,7 @@ switch (r_kind) {
             out << ", t" << incrementRegCount(r_binary_reg) << "\n";
         }
         out << "\txori t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv);
-            out << ", 1" << "\n";
+        out << ", 1" << "\n";
         break;
     case KOOPA_RBO_GE:
         if (l_flag_int)
@@ -757,8 +804,14 @@ static void print_slice(const koopa_raw_slice_t &slice) {
 }
 
 static void insertToGlobal(const void** buffer, uint32_t len, int reg_count_rv,std::vector<BufferInfo>& find_reg_info) {
-    BufferInfo new_info = {buffer, reg_count_rv, len};
-    find_reg_info.push_back(new_info); // 添加到 vector 中
+    if (len > 0) { // 确保 buffer 不为空
+        const void** last_element = new const void*[1];
+        last_element[0] = buffer[len - 1]; // 将最后一个元素存储到新的数组中
+
+        // 创建新的 BufferInfo，指向新的最后一个元素数组
+        BufferInfo new_info = {last_element, reg_count_rv, 1}; // 长度为 1
+        find_reg_info.push_back(new_info); // 添加到 vector 中
+    }
 }
 
 // 打印 myGlobal 的内容
