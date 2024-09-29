@@ -1,3 +1,3 @@
 #!/bin/bash
 
-build/compiler -koopa hello.c -o hello.koopa
+build/compiler -riscv hello.c -o hello.s

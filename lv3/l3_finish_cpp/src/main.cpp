@@ -9,11 +9,44 @@
 #include <cassert>
 #include <algorithm> 
 
+
 #include "koopa.h"
 #include "ast.h"
 
 using namespace std;
 static int reg_count_rv = 0;
+static int increment_reg_count_rv = 0;
+static bool l_flag_int = false;
+static bool r_flag_int = false;
+static int l_binary_reg = 0;
+static int r_binary_reg = 0;
+static bool l_binary_flag = false;
+static bool r_binary_flag = false;
+
+struct BufferInfo {
+    const void** buffer;  // 存储 buffer 数组
+    int reg_count_rv;     // 存储 reg_count_rv
+    uint32_t len;         // 存储 buffer 的长度
+};
+
+static std::vector<BufferInfo> l_find_reg_info;
+static std::vector<BufferInfo> r_find_reg_info;
+
+static int incrementRegCount(int reg_count_rv);
+static void print_slice(const koopa_raw_slice_t &slice);
+static void insertToGlobal(const void** buffer, uint32_t len, int reg_count_rv,std::vector<BufferInfo>& find_reg_pair);
+static void printGlobalContents(std::vector<BufferInfo>& find_reg_pair);
+static int findRegCountRv(const void* target, const std::vector<BufferInfo>& find_reg_info);
+
+// 定义日志启用标志
+#define ENABLE_LOGGING 1 // 设置为 1 启用日志，设置为 0 禁用日志
+
+// 定义日志宏
+#if ENABLE_LOGGING
+    #define LOG(msg) std::cout << msg << std::endl
+#else
+    #define LOG(msg) // 如果禁用日志，什么都不做
+#endif
 
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program,std::ostream &out);
@@ -121,19 +154,18 @@ void Visit(const koopa_raw_value_t &value,std::ostream &out) {
 void Visit(const koopa_raw_return_t &ret,std::ostream &out) {
     // 访问 return 指令中包含的返回值
     auto ret_value = ret.value;
-    // 示例程序中, ret_value 一定是一个 integer
-    //cout << ret_value->kind.tag;
+    LOG("return.tag:" << ret_value->kind.tag);
     switch (ret_value->kind.tag){
         case KOOPA_RVT_INTEGER:
         Visit(ret_value->kind.data.integer,out);
         out << "\tret\n";
         break;
         case KOOPA_RVT_BINARY:
-        out << "\tmv a0, t" << reg_count_rv-1 << "\n";
+        out << "\tmv a0, t" << incrementRegCount(reg_count_rv -1) << "\n";
         out << "\tret\n";
         break;
         default:
-        cout << "undefine return action\n";
+        LOG("undefine return action");
         break;
     }
     
@@ -149,143 +181,465 @@ void Visit(const koopa_raw_integer_t &integer,std::ostream &out) {
 //处理 binary 指令
 void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
     auto op = binary.op;
-    cout << "op:" << op << "\n";   //KOOPA_RBO_MUL KOOPA_RBO_ADD
+    LOG("op:" << op);
     auto lhs = binary.lhs;
     auto rhs = binary.rhs;
     auto l_kind = lhs->kind.tag;
     auto r_kind = rhs->kind.tag;
+    auto l_name = lhs->name;
+    auto r_name = rhs->name;
+    auto l_used_by = lhs->used_by;
+    auto r_used_by = rhs->used_by;
+    //LOG("l_used_by:");
+    //print_slice(l_used_by);
+    //LOG("r_used_by:");
+    //print_slice(r_used_by);
+    insertToGlobal(l_used_by.buffer,l_used_by.len,reg_count_rv,l_find_reg_info);
+    insertToGlobal(r_used_by.buffer,r_used_by.len,reg_count_rv,r_find_reg_info);
+    printGlobalContents(l_find_reg_info);
+    printGlobalContents(r_find_reg_info);
     int32_t l_value;
     int32_t r_value;
     if (l_kind == KOOPA_RVT_INTEGER)
     {
+        l_flag_int = true;
+        l_binary_flag = false;
         l_value = lhs->kind.data.integer.value;
     }
-    else
+    else if (l_kind == KOOPA_RVT_BINARY)
     {
+        l_binary_reg = findRegCountRv(lhs,l_find_reg_info);
+        LOG("l_binary_reg:" << l_binary_reg);
+        l_flag_int = false;
+        l_binary_flag = true;
+    }else{
+        l_flag_int = false;
+        l_binary_flag = false;
         l_value = 0;
     }
     
     if (r_kind == KOOPA_RVT_INTEGER)
     {
+        r_flag_int = true;
         r_value = rhs->kind.data.integer.value;
     }
-    else
+    else if (r_kind == KOOPA_RVT_BINARY)
     {
-        r_value = 0;
+        r_binary_reg = findRegCountRv(rhs,r_find_reg_info);
+        LOG("r_binary_reg:" << r_binary_reg);
+        r_flag_int = false;
+        r_binary_flag = true;
+    }else{
+        l_flag_int = false;
+        l_binary_flag = false;
+        l_value = 0;
     }
 
-/*
+
 switch (l_kind) {
     case KOOPA_RVT_INTEGER:  // lhs 的指令类型为 INTEGER
-        std::cout << "lhs is INTEGER" << std::endl;
+        LOG("lhs is INTEGER");
         break;
     case KOOPA_RVT_RETURN:   // lhs 的指令类型为 RETURN
-        std::cout << "lhs is RETURN" << std::endl;
+        LOG("lhs is RETURN");
         break;
     case KOOPA_RVT_BINARY:
-        std::cout << "rhs is BINARY" << std::endl;
+        LOG("lhs is BINARY");
         break;
 }
 
-switch (r_kind) {
+switch (r_kind) { 
     case KOOPA_RVT_INTEGER:  // rhs 的指令类型为 INTEGER
-        std::cout << "rhs is INTEGER" << std::endl;
+        LOG("rhs is INTEGER");
         break;
     case KOOPA_RVT_RETURN:   // rhs 的指令类型为 RETURN
-        std::cout << "rhs is RETURN" << std::endl;
+        LOG("rhs is RETURN");
         break;
     case KOOPA_RVT_BINARY:
-        std::cout << "rhs is BINARY" << std::endl;
+        LOG("rhs is BINARY");
         break;
 }
-*/
+
     switch (op)
     {
-    case KOOPA_RBO_EQ:
-        out << "\tli t" << reg_count_rv << ", ";
-        if (l_value)
+    case KOOPA_RBO_NOT_EQ:
+        
+        out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+        if (l_flag_int)
         {
             out << l_value << "\n";
         }else
         {
-            out << "x0\n";
+            out << "0\n";
         }
-        out << "\txor t" << reg_count_rv << ", t" << reg_count_rv << ", ";
-        if (r_value)
+        out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv) << ", ";
+        if (r_flag_int)
         {
             out << r_value << "\n";
         }else
         {
-            out << "x0\n";
+            out << "0\n";
         }
-        out << "\tseqz t" << reg_count_rv << ", t" << reg_count_rv << "\n";
+        out << "\tsnez t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+        reg_count_rv++;
+        break;
+    case KOOPA_RBO_EQ:
+        out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+        if (l_flag_int)
+        {
+            out << l_value << "\n";
+        }else
+        {
+            out << "0\n";
+        }
+        out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv) << ", ";
+        if (r_flag_int)
+        {
+            out << r_value << "\n";
+        }else
+        {
+            out << "0\n";
+        }
+        out << "\tseqz t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv) << "\n";
         reg_count_rv++;
         break;
     case KOOPA_RBO_SUB:
-        out << "\tsub t" << reg_count_rv << ", ";
-        if (l_value)
-        {
-            out << l_value;
-        }else
-        {
-            out << "x0";
+        if (l_flag_int){
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << l_value << "\n";
+            reg_count_rv++;
         }
-        out << ", t" << reg_count_rv-1 << "\n";
+        if (r_flag_int)
+        {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << r_value << "\n";
+            reg_count_rv++;
+        }
+        if (l_flag_int && r_flag_int)
+        {
+            out << "\tsub t" << incrementRegCount(reg_count_rv) << ", ";
+            out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+            out << "t" << incrementRegCount(reg_count_rv)-1 <<"\n";    //r_value
+        }else{
+            if (l_flag_int)
+            {
+                out << "\tsub t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-1) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-2) <<"\n";    //r_value
+            };
+            if (r_flag_int)
+            {
+                out << "\tsub t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
+            }
+            if (!r_flag_int && !l_flag_int){
+                out << "\tsub t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
+            }
+        }
         reg_count_rv++;
         break;
     case KOOPA_RBO_MUL:
-        if (l_value)
-        {
-            out << "\tli t" << reg_count_rv << ", ";
+        if (l_flag_int){
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
         }
-        if (r_value)
+        if (r_flag_int)
         {
-            out << "\tli t" << reg_count_rv << ", ";
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
         }
-        out << "\tmul t" << reg_count_rv-1 << ", t" << reg_count_rv-2;
-        out << ", t" << reg_count_rv-1 << "\n";
+        if (l_flag_int && r_flag_int)
+        {
+            out << "\tmul t" << incrementRegCount(reg_count_rv) << ", ";
+            out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+            out << "t" << incrementRegCount(reg_count_rv)-1 <<"\n";    //r_value
+        }else{
+            if (l_flag_int)
+            {
+                out << "\tmul t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-1) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-2) <<"\n";    //r_value
+            };
+            if (r_flag_int)
+            {
+                out << "\tmul t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
+            }
+            if (!r_flag_int && !l_flag_int){
+                out << "\tmul t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
+            }
+        }
+        reg_count_rv++;
         break;
     case KOOPA_RBO_ADD:
-        if (l_value)
-        {
-            out << "\tli t" << reg_count_rv << ", ";
+        if (l_flag_int){
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
         }
-        if (r_value)
+        if (r_flag_int)
         {
-            out << "\tli t" << reg_count_rv << ", ";
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
         }
-        out << "\tadd t" << reg_count_rv-1 << ", t" << reg_count_rv-2;
-        out << ", t" << reg_count_rv-1 << "\n";
+        if (l_flag_int && r_flag_int)
+        {
+            out << "\tadd t" << incrementRegCount(reg_count_rv) << ", ";
+            out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+            out << "t" << incrementRegCount(reg_count_rv)-1 <<"\n";    //r_value
+        }else{
+            if (l_flag_int)
+            {
+                out << "\tadd t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-1) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-2) <<"\n";    //r_value
+            };
+            if (r_flag_int)
+            {
+                out << "\tadd t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
+            }
+            if (!r_flag_int && !l_flag_int){
+                out << "\tadd t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
+            }
+        }
+        reg_count_rv++;
         break;
     case KOOPA_RBO_LE:
-        if (l_value)
+        if (l_flag_int)
         {
-            out << "\tli t" << reg_count_rv << ", ";
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
         }
-        if (r_value)
+        if (r_flag_int)
         {
-            out << "\tli t" << reg_count_rv << ", ";
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
         }
-        out << "\tsgt t" << reg_count_rv-1 << ", t" << reg_count_rv-2;
-        out << ", t" << reg_count_rv-1 << "\n";
-        out << "\tsgt t" << reg_count_rv-1 << ", t" << reg_count_rv-1;
-        out << "\n";
+        if (l_flag_int && r_flag_int){
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+            reg_count_rv++;
+        }else if (l_binary_flag)
+        {
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
+        }else if (r_binary_flag)
+        {
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+        }else if (r_binary_flag && l_binary_flag){
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
+            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+        }
+        out << "\txori t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv);
+            out << ", 1" << "\n";
+        break;
+    case KOOPA_RBO_GE:
+        if (l_flag_int)
+        {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << l_value << "\n";
+            reg_count_rv++;
+        }
+        if (r_flag_int)
+        {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << r_value << "\n";
+            reg_count_rv++;
+        }
+        if (l_flag_int && r_flag_int){
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+            reg_count_rv++;
+        }else if (l_binary_flag)
+        {
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
+        }else if (r_binary_flag)
+        {
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+        }else if (r_binary_flag && l_binary_flag){
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
+            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+        }
+        out << "\txori t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv);
+        out << ", 1" << "\n";
+        reg_count_rv++;
+        break;
+    case KOOPA_RBO_LT:
+        if (l_flag_int)
+        {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << l_value << "\n";
+            reg_count_rv++;
+        }
+        if (r_flag_int)
+        {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << r_value << "\n";
+            reg_count_rv++;
+        }
+        if (l_flag_int && r_flag_int){
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+            reg_count_rv++;
+        }else if (l_binary_flag)
+        {
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
+        }else if (r_binary_flag)
+        {
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+        }else if (r_binary_flag && l_binary_flag){
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
+            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+        }
+        reg_count_rv++;
+        break;
+    case KOOPA_RBO_GT:
+        if (l_flag_int)
+        {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << l_value << "\n";
+            reg_count_rv++;
+        }
+        if (r_flag_int)
+        {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << r_value << "\n";
+            reg_count_rv++;
+        }
+        if (l_flag_int && r_flag_int){
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+            reg_count_rv++;
+        }else if (l_binary_flag)
+        {
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
+        }else if (r_binary_flag)
+        {
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+        }else if (r_binary_flag && l_binary_flag){
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
+            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+        }
+        reg_count_rv++;
+        break;
+    case KOOPA_RBO_DIV:
+        if (l_flag_int){
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << l_value << "\n";
+            reg_count_rv++;
+        }
+        if (r_flag_int)
+        {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << r_value << "\n";
+            reg_count_rv++;
+        }
+        if (l_flag_int && r_flag_int)
+        {
+            out << "\tdiv t" << incrementRegCount(reg_count_rv) << ", ";
+            out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+            out << "t" << incrementRegCount(reg_count_rv)-1 <<"\n";    //r_value
+        }else{
+            if (l_flag_int)
+            {
+                out << "\tdiv t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-1) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-2) <<"\n";    //r_value
+            };
+            if (r_flag_int)
+            {
+                out << "\tdiv t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
+            }
+            if (!r_flag_int && !l_flag_int){
+                out << "\tdiv t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
+            }
+        }
+        reg_count_rv++;
+        break;
+    case KOOPA_RBO_MOD:
+        if (l_flag_int){
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << l_value << "\n";
+            reg_count_rv++;
+        }
+        if (r_flag_int)
+        {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
+            out << r_value << "\n";
+            reg_count_rv++;
+        }
+        if (l_flag_int && r_flag_int)
+        {
+            out << "\trem t" << incrementRegCount(reg_count_rv) << ", ";
+            out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+            out << "t" << incrementRegCount(reg_count_rv)-1 <<"\n";    //r_value
+        }else{
+            if (l_flag_int)
+            {
+                out << "\trem t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-1) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-2) <<"\n";    //r_value
+            };
+            if (r_flag_int)
+            {
+                out << "\trem t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
+            }
+            if (!r_flag_int && !l_flag_int){
+                out << "\trem t" << incrementRegCount(reg_count_rv) << ", ";
+                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
+                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
+            }
+        }
+        reg_count_rv++;
         break;
     default:
         break;
     }
+    
+    LOG("l_value:" << l_value );
+    LOG("r_value:" << r_value);
+    LOG("l_flag:" << l_flag_int);
+    LOG("r_flag:" << r_flag_int);
+    LOG("lhs:" << lhs);
+    LOG("rhs:" << rhs);
+    if (l_name)
+    {
+        LOG("l_name:" << l_name);
+    }
+    if (r_name)
+    {
+        LOG("r_name:" << r_name);
+    }
+
+    
 }
 
 extern FILE *yyin;
@@ -385,4 +739,47 @@ koopa_delete_raw_program_builder(builder);
 }
 
 cout << "finish" <<endl;
+}
+
+static int incrementRegCount(int reg_count_rv) {
+    // 循环在 0 到 6 之间
+    increment_reg_count_rv = reg_count_rv % 7; 
+    //LOG("Current increment_reg_count_rv: " << increment_reg_count_rv);
+    //LOG("Current reg_count_rv: " << reg_count_rv);
+    return increment_reg_count_rv;
+}
+
+static void print_slice(const koopa_raw_slice_t &slice) {
+    for (uint32_t i = 0; i < slice.len; ++i) {
+        // 直接打印 buffer 中的 void* 指针
+        LOG("buffer[" << i << "] = " << slice.buffer[i]);
+    }
+}
+
+static void insertToGlobal(const void** buffer, uint32_t len, int reg_count_rv,std::vector<BufferInfo>& find_reg_info) {
+    BufferInfo new_info = {buffer, reg_count_rv, len};
+    find_reg_info.push_back(new_info); // 添加到 vector 中
+}
+
+// 打印 myGlobal 的内容
+static void printGlobalContents(std::vector<BufferInfo>& find_reg_info) {
+    LOG("Global Pair contents:");
+    for (const auto& info : find_reg_info) {
+        LOG("reg_count_rv = " << info.reg_count_rv);
+        for (size_t i = 0; i < info.len; ++i) {
+            LOG("buffer[" << i << "] = " << info.buffer[i]);
+        }
+    }
+}
+
+static int findRegCountRv(const void* target, const std::vector<BufferInfo>& find_reg_info) {
+    for (const auto& info : find_reg_info) {
+        for (size_t i = 0; i < info.len; ++i) {
+            // 比较当前 BufferInfo 中的 buffer[i] 和目标指针
+            if (info.buffer[i] == target) {
+                return info.reg_count_rv; // 找到匹配，返回 reg_count_rv
+            }
+        }
+    }
+    return -1; // 如果未找到，返回一个标识值（例如 -1）
 }

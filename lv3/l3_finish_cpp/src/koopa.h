@@ -423,7 +423,7 @@ typedef enum {
 typedef struct {
   koopa_raw_value_tag_t tag;
   union {
-    koopa_raw_integer_t integer;
+    koopa_raw_integer_t integer;  //0
     koopa_raw_aggregate_t aggregate;
     koopa_raw_func_arg_ref_t func_arg_ref;
     koopa_raw_block_arg_ref_t block_arg_ref;
@@ -432,11 +432,11 @@ typedef struct {
     koopa_raw_store_t store;
     koopa_raw_get_ptr_t get_ptr;
     koopa_raw_get_elem_ptr_t get_elem_ptr;
-    koopa_raw_binary_t binary;
-    koopa_raw_branch_t branch;
+    koopa_raw_binary_t binary;  //12
+    koopa_raw_branch_t branch; 
     koopa_raw_jump_t jump;
     koopa_raw_call_t call;
-    koopa_raw_return_t ret;
+    koopa_raw_return_t ret;     //16
   } data;
 } koopa_raw_value_kind_t;
 

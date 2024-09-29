@@ -9,18 +9,26 @@
 
 //#include "ast.h"
 
+// 定义日志启用标志
+#define ENABLE_LOGGING 0 // 设置为 1 启用日志，设置为 0 禁用日志
+
+// 定义日志宏
+#if ENABLE_LOGGING
+    #define LOG(msg) std::cout << msg << std::endl
+#else
+    #define LOG(msg) // 如果禁用日志，什么都不做
+#endif
+
 static int reg_count_koopa = 0;
 static int op_id = 0;
 static int brackets_number = 0;
+static int brackets_times = 0;
 static int unary_number = 0;
 static int unary_id = 0;
 static int once_number =1;
+static int temp = 0;
 
 static bool unaryop = false;
-
-//static std::stack<std::string> UnaryopStack; // 操作符栈
-//static std::stack<int> numberStack; // 数字栈
-//static std::queue<int> intQueue;    //数字队列
 
 // 定义一个可以存储 string 和 int 的 variant 类型
     using StringOrInt = std::variant<std::string, int>;
@@ -47,18 +55,16 @@ class NumberAST : public BaseAST {
 public:
     int number;
     void Dump(std::ostream &out = std::cout) const override {
-        std::cout << "number:" << number << std::endl;
+        LOG("number:" << number)
         once_number = number;
         if(unaryop)
         unary_vec.emplace_back(number);
-        //std::cout << op_id << "NumberAST\n";
-        //intQueue.push(number);
         if(!unaryop)
         vec.emplace_back(number);
         else{
         std::string unarynumber = "%" + std::to_string(unary_number);
         unary_number++;
-        std::cout << "unarynumber:" << unarynumber << std::endl;
+        LOG("unarynumber:" << unarynumber);
         vec.emplace_back(unarynumber);
         }
         unaryop = false;
@@ -143,10 +149,8 @@ public:
             } else {
                 auto &[left, op, right] = arg;
                 left->Dump(out);  // 处理左边的 MulExp
-                //root->AddChild(std::string(op));
                 vec.emplace_back(op);
                 op_id++;
-                //std::cout << op_id << "MulExpAST\n";
                 right->Dump(out);  // 处理右边的 UnaryExp
             }
         }, expr);
@@ -169,10 +173,8 @@ public:
             } else {
                 auto &[left, op, right] = arg;
                 left->Dump(out);  // 处理左边的 AddExp
-                //root->AddChild(std::string(op));  // 输出操作符
                 vec.emplace_back(op);
                 op_id++;
-                //std::cout << op_id << "AddExpAST\n";
                 right->Dump(out);  // 处理右边的 MulExp
             }
         }, expr);
@@ -195,10 +197,8 @@ public:
             } else {
                 auto &[left, op, right] = arg;
                 left->Dump(out);  // 处理左边的 RelExp
-                //root->AddChild(std::string(op));  // 输出操作符
                 vec.emplace_back(op);
                 op_id++;
-                //std::cout << op_id << "RelExpAST\n";
                 right->Dump(out);  // 处理右边的 AddExp
             }
         }, expr);
@@ -221,10 +221,8 @@ public:
             } else {
                 auto &[left, op, right] = arg;
                 left->Dump(out);  // 处理左边的 EqExp
-                //root->AddChild(std::string(op));  // 输出操作符
                 vec.emplace_back(op);
                 op_id++;
-                //std::cout << op_id << "EqExpAST\n";
                 right->Dump(out);  // 处理右边的 RelExp
             }
         }, expr);
@@ -247,10 +245,8 @@ public:
             } else {
                 auto &[left, op, right] = arg;
                 left->Dump(out);  // 处理左边的 LAndExp
-                //root->AddChild(std::string(op));  // 输出操作符
                 vec.emplace_back(op);
                 op_id++;
-                //std::cout << op_id << "LAndExpAST\n";
                 right->Dump(out);  // 处理右边的 EqExp
             }
         }, expr);
@@ -273,10 +269,8 @@ public:
             } else {
                 auto &[left, op, right] = arg;
                 left->Dump(out);  // 处理左边的 LOrExp
-                //root->AddChild(std::string(op));  // 输出操作符
                 vec.emplace_back(op);
                 op_id++;
-                //std::cout << op_id << "LOrExpAST\n";
                 right->Dump(out);  // 处理右边的 LAndExp
             }
         }, expr);
@@ -339,10 +333,10 @@ public:
     func_def->Dump(out);
     //build_child_tree();
     //root->PrintTree();
-    PrintVector(vec);std::cout << "\n";
+    PrintVector(vec);
 
     GenerateIRCode(out);
-    PrintVector(vec);std::cout << "\n";
+    PrintVector(vec);
     if(reg_count_koopa >= 1){
         out <<"\t" << "ret %" << reg_count_koopa-1;
         out << "\n";
@@ -357,7 +351,7 @@ public:
     }
 };
 
-void GenerateIRCode(std::ostream &out) {
+static void GenerateIRCode(std::ostream &out) {
     int number;
     std::string op;
     bool flag_once = true;
@@ -370,7 +364,7 @@ void GenerateIRCode(std::ostream &out) {
         // 找到 number
         if (std::holds_alternative<int>(unary_vec[j])) {
             number = std::get<int>(unary_vec[j]);
-            //std::cout << "number:" << number << std::endl;
+            LOG("number:" << number);
             bool foundPreviousNumber = false;
             flag_once = true;
             for (int k = j - 1; k >= 0; --k)
@@ -382,20 +376,20 @@ void GenerateIRCode(std::ostream &out) {
                     {
 
                         if (op == add){
-                            //std::cout << "op==add" <<std::endl;
+                            LOG("op==add");
                             once_number = number; 
                         }
                         
                         else if (op == sub)
                         {   
-                            //std::cout << "op==sub" <<std::endl;
+                            LOG("op==sub");
                             out <<"\t%" << unary_id << " = sub 0 , " << number << "\n";
                             reg_count_koopa++;
                             unary_id++;
                         }
                         else if (op == no)
                         {   
-                            //std::cout << "op==!" <<std::endl;
+                            LOG("op==!");
                             out <<"\t%" << unary_id << " = eq " << number << ", 0" << "\n";
                             reg_count_koopa++;
                             unary_id++;
@@ -407,19 +401,19 @@ void GenerateIRCode(std::ostream &out) {
                     else 
                     {
                         if (op == add){
-                            //std::cout << "op==add" <<std::endl;
+                            LOG("op==add");
                             once_number = number;   
                         }
                         else if (op == sub)
                         {
-                            //std::cout << "op==sub" <<std::endl;   
+                            LOG("op==sub");   
                             out <<"\t%" << reg_count_koopa << " = sub 0 , %" << unary_id-1 << "\n";
                             reg_count_koopa++;
                             unary_id++;
                         }
                         else if (op == no)
                         {
-                            //std::cout << "op==!" <<std::endl;   
+                            LOG("op==!");  
                             out <<"\t%" << reg_count_koopa << " = eq %" << unary_id-1 << ", 0" << "\n";
                             reg_count_koopa++;
                             unary_id++;
@@ -451,59 +445,90 @@ void GenerateIRCode(std::ostream &out) {
 
     
 
-void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec){
+static void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec){
     int l_value;
     int r_value;
     std::string op;
     std::string reg;
     int max_op = (vec.size() - brackets_number) / 2;
-    //std::cout << "vec.size()" << "\t" << vec.size() << "\n";
-    std::cout << "op_id:" << op_id << "\t" << "max_op:" <<max_op << "\n";
-    for (size_t i = 0; i < max_op;)
-{
+    LOG("vec.size():" << vec.size());
+    LOG("max_op:" << max_op);
+    LOG("brackets_number:" << brackets_number);
+for (size_t i = 0; i < max_op;){
+    LOG("enter i:" << i);
     bool found_operator = false;
+    bool found_bracket = false;
+    PrintVector(vec);
     for (size_t j = 0; j < vec.size(); ++j) {
         // 找到 ()
+        LOG("enter () i:" << i);
         if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "(") {
+            LOG("find( i:" << i);
             std::vector<StringOrInt> newVec;
             size_t openParenIndex = -1; // 用于记录左括号的索引
-
-        // 找到左括号的索引
-        for (size_t j = 0; j < vec.size(); ++j) {
+            // 找到左括号的索引
+            for (size_t j = 0; j < vec.size(); ++j) {
             if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "(") {
                 openParenIndex = j;
                 break;
             }
-        }
-        // 如果找到了左括号
-        if (openParenIndex != -1) {
-            // 从左括号开始遍历，直到找到右括号
-            for (size_t j = openParenIndex + 1; j < vec.size(); ++j) {
-                if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == ")") {
-                    // 找到右括号，结束循环
-                    break;
-                }
-                // 添加操作数到新向量
-            newVec.push_back(vec[j]);
             }
-        }   
-            brackets_number = brackets_number - 2;
-            std::cout << "newvec:\n";
-            PrintVector(newVec);
-            // 删除原 vector 中的 () 和其包含的数
-            vec.erase(vec.begin() + openParenIndex, vec.begin() + openParenIndex + newVec.size() + 2);
-            deal_arithmetic_expressions(out,newVec);
-            std::string unarynumber = "%" + std::to_string(reg_count_koopa - 1);
-            std::cout << "unarynumber:" << unarynumber << std::endl;
-            vec.insert(vec.begin() + j, unarynumber);
-            PrintVector(vec);
-            int op_number = (newVec.size() + 2) / 3 ;
-            std::cout << "op_number:" << op_number << "\n";
-            i = i + op_number;
-            //PrintVector(vec);std::cout << "\n";
-            //found_operator = true;
-            break;
+            // 如果找到了左括号
+            if (openParenIndex != -1) {
+                // 从左括号开始遍历，直到找到右括号
+                LOG("openParenIndex:" << openParenIndex);
+                LOG("vec.size():" << vec.size());
+                for (size_t j = openParenIndex + 1; j < vec.size(); ++j) {
+                    if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == ")") {
+                        // 找到右括号，结束循环
+                        break;
+                    }
+                    // 添加操作数到新向量
+                newVec.push_back(vec[j]);
+                }
+                brackets_number = brackets_number - 2;
+                LOG("newvec:\n");
+                PrintVector(newVec);
+                LOG("brackets_times:" << brackets_times);
+                LOG("openParenIndex:" << openParenIndex);
+                LOG("newVec.size():" << newVec.size());
+                // 删除原 vector 中的 () 和其包含的数
+                vec.erase(vec.begin() + openParenIndex , vec.begin() + openParenIndex + newVec.size() + 2);
+                //PrintVector(vec);
+                std::string unarynumber = "%" + std::to_string(brackets_times);
+                LOG("unarynumber:" << unarynumber);
+                LOG("j:" << j );
+                vec.insert(vec.begin() + j, unarynumber);
+                brackets_times++;
+
+                LOG("brackets_times:" << brackets_times);
+                LOG("max_op:" <<max_op);
+                LOG("prepare deal_arithmetic_expressions" );
+                temp = brackets_number;
+                brackets_number = 0;
+                deal_arithmetic_expressions(out,newVec);
+                brackets_number = temp;
+                LOG("end deal_arithmetic_expressions" );
+
+                PrintVector(vec);
+                max_op = (vec.size() - brackets_number) / 2;
+                LOG("max_op:" <<max_op );
+                LOG("newVec.size():" << newVec.size());
+                int op_number = (newVec.size() + 2) / 3 ;
+                LOG("op_number:" << op_number );
+                //i = i + op_number;
+                LOG("i:" << i );
+                LOG("j:" << j);
+                newVec.clear();
+                found_bracket = true;
+                break;
+            }  
         }
+    }
+    if (found_bracket)
+    {
+        LOG("skip operate i:" << i );
+        continue;
     }
     for (size_t j = 0; j < vec.size(); ++j) {
         // 找到 /
@@ -532,7 +557,6 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
@@ -564,7 +588,6 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
@@ -595,12 +618,12 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
     for (size_t j = 0; j < vec.size(); ++j) {
         // 找到 +
+        PrintVector(vec);
         if (std::holds_alternative<std::string>(vec[j]) && std::get<std::string>(vec[j]) == "+") {
             op = "+";
             out << "\t%" << reg_count_koopa << " = add ";
@@ -626,7 +649,6 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
@@ -657,7 +679,6 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
@@ -688,7 +709,7 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
+
             break;
         }
     }
@@ -719,7 +740,6 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
@@ -750,7 +770,6 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
@@ -781,7 +800,6 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
@@ -812,7 +830,6 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
@@ -843,7 +860,6 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
@@ -898,7 +914,6 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
@@ -939,33 +954,33 @@ void deal_arithmetic_expressions(std::ostream &out,std::vector<StringOrInt>& vec
             vec.insert(vec.begin() + j - 1, reg);
             i++;
             found_operator = true; 
-            //PrintVector(vec);std::cout << "\n";
             break;
         }
     }
    // 如果在这一轮中没有找到任何有效的操作符，打印错误信息并退出循环
+    LOG("no find operate");
     if (!found_operator) {
         //std::cerr << "Error: No valid operator (*, +, or <=) found in the values." << std::endl;
-        break;  // 跳出循环，避免程序继续执行
+        //break;  // 跳出循环，避免程序继续执行
     }
-    }
-    std::cout << "finish vec\n";
+}
+    LOG("finish vec")
 }
 
 
-void PrintVector(const std::vector<StringOrInt>& vec) {
-    std::cout << "vec内容: \n";
+static void PrintVector(const std::vector<StringOrInt>& vec) {
+    LOG("vec内容: ");
     for (const auto& element : vec) {
         std::visit([](const auto& value) {
-            std::cout << value << std::endl;
+            LOG(value);
         }, element);
     }
 }
-void PrintUnaryVector(const std::vector<StringOrInt>& unary_vec) {
-    std::cout << "unary_vec内容: \n";
+static void PrintUnaryVector(const std::vector<StringOrInt>& unary_vec) {
+    LOG("unary_vec内容:");
     for (const auto& element : unary_vec) {
         std::visit([](const auto& value) {
-            std::cout << value << std::endl;
+            LOG(value);
         }, element);
     }
 }
