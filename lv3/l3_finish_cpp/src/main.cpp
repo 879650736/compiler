@@ -33,15 +33,10 @@ struct BufferInfo {
 static std::vector<BufferInfo> find_reg_info;
 
 static int incrementRegCount(int reg_count_rv);
-static void print_slice(const koopa_raw_slice_t &slice);
-static void insertToGlobal(const void** buffer, uint32_t len, int reg_count_rv,std::vector<BufferInfo>& find_reg_pair);
-static void printGlobalContents(std::vector<BufferInfo>& find_reg_pair);
-static int findRegCountRv(const void* target, const std::vector<BufferInfo>& find_reg_info);
-static bool whether_replaced(int binary_reg);
 
 // 定义日志启用标志
 #define ENABLE_LOGGING 1 // 设置为 1 启用日志，设置为 0 禁用日志
-#define USE_KOOPA_IR 10   //设置为 1 启用输出的KOOPA_IR，设置为 0 使用test.koopa
+#define USE_KOOPA_IR 1   //设置为 1 启用输出的KOOPA_IR，设置为 0 使用test.koopa
 
 // 定义日志宏
 #if ENABLE_LOGGING
@@ -165,7 +160,7 @@ void Visit(const koopa_raw_return_t &ret,std::ostream &out) {
         out << "\tret\n";
         break;
         case KOOPA_RVT_BINARY:
-        out << "\tmv a0, t" << incrementRegCount(reg_count_rv -2) << "\n";
+        out << "\tmv a0, t" << incrementRegCount(reg_count_rv-1) << "\n";
         out << "\tret\n";
         break;
         default:
@@ -192,15 +187,6 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
     LOG("rhs:" << rhs);
     auto l_kind = lhs->kind.tag;
     auto r_kind = rhs->kind.tag;
-    //auto l_name = lhs->name;
-    //auto r_name = rhs->name;
-    auto l_used_by = lhs->used_by;
-    auto r_used_by = rhs->used_by;
-    LOG("l_used_by:");
-    print_slice(l_used_by);
-    LOG("r_used_by:");
-    print_slice(r_used_by);
-    
     int32_t l_value;
     int32_t r_value;
     if (l_kind == KOOPA_RVT_INTEGER)
@@ -211,7 +197,6 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
     }
     else if (l_kind == KOOPA_RVT_BINARY)
     {
-        l_binary_reg = findRegCountRv(lhs,find_reg_info);
         LOG("l_binary_reg:" << l_binary_reg);
         l_flag_int = false;
         l_binary_flag = true;
@@ -230,7 +215,6 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
     }
     else if (r_kind == KOOPA_RVT_BINARY)
     {
-        r_binary_reg = findRegCountRv(rhs,find_reg_info);
         LOG("r_binary_reg:" << r_binary_reg);
         r_flag_int = false;
         r_binary_flag = true;
@@ -247,17 +231,6 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
     LOG("r_flag_int:" << r_flag_int);
     LOG("l_binary_flag:" << l_binary_flag);
     LOG("r_binary_flag:" << r_binary_flag);
-    LOG("whether_replaced(l_binary_reg):" << whether_replaced(l_binary_reg));
-    LOG("whether_replaced(r_binary_reg):" << whether_replaced(r_binary_reg));
-    if(l_flag_int){
-        insertToGlobal(l_used_by.buffer,l_used_by.len,reg_count_rv,find_reg_info);
-    }else if(r_flag_int){
-        insertToGlobal(r_used_by.buffer,r_used_by.len,reg_count_rv,find_reg_info);
-    }else{
-        insertToGlobal(l_used_by.buffer,l_used_by.len,reg_count_rv,find_reg_info);
-    }
-    LOG("find_reg_info:");
-    printGlobalContents(find_reg_info);
 
 switch (l_kind) {
     case KOOPA_RVT_INTEGER:  // lhs 的指令类型为 INTEGER
@@ -291,30 +264,57 @@ switch (r_kind) {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
         if (r_flag_int)
         {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
-        }
-        if (l_flag_int && r_flag_int){
-            out << "\tor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-            reg_count_rv++;
-        }else if (l_binary_flag)
-        {
-            out << "\tor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
-        }else if (r_binary_flag)
-        {
-            out << "\tor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-        }else if (r_binary_flag && l_binary_flag){
-            out << "\tor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
-            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+            reg_count_binary++;
         }
 
+        if (l_flag_int && r_flag_int){
+            LOG("l:int,r:int");
+            out << "\tor t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - 2;
+        }
+        else if(l_flag_int && r_binary_flag )
+        {
+            LOG("l:int,r:binary");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\tor t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if (l_binary_flag && r_binary_flag )
+        {
+            LOG("l:binary,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\tor t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        else if(l_binary_flag && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\tor t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        reg_count_rv++;
+        break;
     case KOOPA_RBO_NOT_EQ:
         if (l_flag_int)
         {
@@ -333,50 +333,14 @@ switch (r_kind) {
 
         if (l_flag_int && r_flag_int){
             LOG("l:int,r:int");
-            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
             out << "\tsnez t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv) << "\n";
             reg_count_rv = reg_count_rv - 2;
         }
-
-        else if ((l_binary_flag && !whether_replaced(l_binary_reg)) && r_flag_int)
-        {
-            LOG("l:binary,r:int");
-            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
-            out << "\tsnez t" << incrementRegCount(reg_count_rv-1) << ", t" << incrementRegCount(reg_count_rv) << "\n";
-            reg_count_rv = reg_count_rv - 1;
-        }
-        else if ((l_binary_flag && !whether_replaced(l_binary_reg)) && (r_binary_flag && whether_replaced(r_binary_reg)))
-        {
-            LOG("l:binary,r:binary_replace");
-            reg_count_binary = 0;
-            Visit(rhs->kind.data.binary,out);
-            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
-            out << "\tsnez t" << incrementRegCount(reg_count_rv-1) << ", t" << incrementRegCount(reg_count_rv) << "\n";
-
-        }
-        else if ((l_binary_flag && !whether_replaced(l_binary_reg)) && (r_binary_flag && !whether_replaced(r_binary_reg)))
-        {   
-            LOG("l:binary,r:binary");
-            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
-            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
-            out << "\tsnez t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv) << "\n";
-
-        }
-
-        else if (l_flag_int && (r_binary_flag && !whether_replaced(r_binary_reg)))
+        else if(l_flag_int && r_binary_flag )
         {
             LOG("l:int,r:binary");
-            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
-            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
-            out << "\tsnez t" << incrementRegCount(reg_count_rv-1) << ", t" << incrementRegCount(reg_count_rv) << "\n";
-            reg_count_rv = reg_count_rv - 1;
-        }
-        else if(l_flag_int && (r_binary_flag && whether_replaced(r_binary_reg)))
-        {
-            LOG("l:int,r:binary_replace");
             reg_count_binary = 0;
             Visit(rhs->kind.data.binary,out);
             out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
@@ -385,9 +349,9 @@ switch (r_kind) {
             reg_count_rv = reg_count_rv - reg_count_binary;
         }
         
-        else if ((l_binary_flag && whether_replaced(l_binary_reg)) && (r_binary_flag && whether_replaced(r_binary_reg)))
+        else if (l_binary_flag && r_binary_flag )
         {
-            LOG("l:binary_replace,r:binary_replace");
+            LOG("l:binary,r:binary");
             reg_count_binary = 0;
             Visit(lhs->kind.data.binary,out);
             int l_reg = reg_count_rv;
@@ -395,24 +359,14 @@ switch (r_kind) {
             Visit(rhs->kind.data.binary,out);
             int r_reg = reg_count_rv;
             LOG("r_reg:" << r_reg);
-            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_reg-1);
-            out << ", t" << incrementRegCount(l_reg-1) << "\n";
-            out << "\tsnez t" << incrementRegCount(reg_count_rv-1) << ", t" << incrementRegCount(reg_count_rv) << "\n";
-            //reg_count_binary++;
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            out << "\tsnez t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
         }
-        else if ((l_binary_flag && whether_replaced(l_binary_reg)) && (r_binary_flag && !whether_replaced(r_binary_reg)))
+        else if(l_binary_flag && r_flag_int)
         {
-            LOG("l:binary_replace,r:binary");
-            reg_count_binary = 0;
-            Visit(lhs->kind.data.binary,out);
-            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
-            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
-            out << "\tsnez t" << incrementRegCount(reg_count_rv-1) << ", t" << incrementRegCount(reg_count_rv) << "\n";
-            //reg_count_binary++;
-        }
-        else if((l_binary_flag && whether_replaced(l_binary_reg)) && r_flag_int)
-        {
-            LOG("l:binary_replace,r:int");
+            LOG("l:binary,r:int");
             reg_count_binary = 0;
             Visit(lhs->kind.data.binary,out);
             out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
@@ -420,140 +374,237 @@ switch (r_kind) {
             out << "\tsnez t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << "\n";
             reg_count_rv = reg_count_rv - reg_count_binary;
         }
-        
         reg_count_rv++;
         break;
     case KOOPA_RBO_EQ:
-        out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
         if (l_flag_int)
         {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
-        }else
-        {
-            out << "0\n";
+            reg_count_rv++;
+            reg_count_binary++;
         }
-        out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv) << ", ";
         if (r_flag_int)
         {
+            out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
-        }else
-        {
-            out << "0\n";
+            reg_count_rv++;
+            reg_count_binary++;
         }
-        out << "\tseqz t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+
+        if (l_flag_int && r_flag_int){
+            LOG("l:int,r:int");
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            out << "\tseqz t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            reg_count_rv = reg_count_rv - 2;
+        }
+        else if(l_flag_int && r_binary_flag )
+        {
+            LOG("l:int,r:binary");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            out << "\tseqz t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if (l_binary_flag && r_binary_flag )
+        {
+            LOG("l:binary,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            out << "\tseqz t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        else if(l_binary_flag && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            out << "\tseqz t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
         reg_count_rv++;
         break;
     case KOOPA_RBO_SUB:
-        if (l_flag_int){
+        if (l_flag_int)
+        {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
         if (r_flag_int)
         {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
-        if (l_flag_int && r_flag_int)
+
+        if (l_flag_int && r_flag_int){
+            LOG("l:int,r:int");
+            out << "\tsub t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - 2;
+        }
+        else if(l_flag_int && r_binary_flag )
         {
-            out << "\tsub t" << incrementRegCount(reg_count_rv) << ", ";
-            out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-            out << "t" << incrementRegCount(reg_count_rv)-1 <<"\n";    //r_value
-        }else{
-            if (l_flag_int)
-            {
-                out << "\tsub t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-1) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-2) <<"\n";    //r_value
-            };
-            if (r_flag_int)
-            {
-                out << "\tsub t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
-            }
-            if (!r_flag_int && !l_flag_int){
-                out << "\tsub t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
-            }
+            LOG("l:int,r:binary");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\tsub t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if (l_binary_flag && r_binary_flag )
+        {
+            LOG("l:binary,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\tsub t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        else if(l_binary_flag && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\tsub t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
         }
         reg_count_rv++;
         break;
     case KOOPA_RBO_MUL:
-        if (l_flag_int){
+        if (l_flag_int)
+        {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
         if (r_flag_int)
         {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
-        if (l_flag_int && r_flag_int)
+
+        if (l_flag_int && r_flag_int){
+            LOG("l:int,r:int");
+            out << "\tmul t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - 2;
+        }
+        else if(l_flag_int && r_binary_flag )
         {
-            out << "\tmul t" << incrementRegCount(reg_count_rv) << ", ";
-            out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-            out << "t" << incrementRegCount(reg_count_rv)-1 <<"\n";    //r_value
-        }else{
-            if (l_flag_int)
-            {
-                out << "\tmul t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-1) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-2) <<"\n";    //r_value
-            };
-            if (r_flag_int)
-            {
-                out << "\tmul t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
-            }
-            if (!r_flag_int && !l_flag_int){
-                out << "\tmul t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
-            }
+            LOG("l:int,r:binary");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\tmul t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if (l_binary_flag && r_binary_flag )
+        {
+            LOG("l:binary,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\tmul t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        else if(l_binary_flag && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\tmul t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
         }
         reg_count_rv++;
         break;
     case KOOPA_RBO_ADD:
-        if (l_flag_int){
+        if (l_flag_int)
+        {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
         if (r_flag_int)
         {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
-        if (l_flag_int && r_flag_int)
+
+        if (l_flag_int && r_flag_int){
+            LOG("l:int,r:int");
+            out << "\tadd t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - 2;
+        }
+        else if(l_flag_int && r_binary_flag )
         {
-            out << "\tadd t" << incrementRegCount(reg_count_rv) << ", ";
-            out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-            out << "t" << incrementRegCount(reg_count_rv)-1 <<"\n";    //r_value
-        }else{
-            if (l_flag_int)
-            {
-                out << "\tadd t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-1) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-2) <<"\n";    //r_value
-            };
-            if (r_flag_int)
-            {
-                out << "\tadd t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
-            }
-            if (!r_flag_int && !l_flag_int){
-                out << "\tadd t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
-            }
+            LOG("l:int,r:binary");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\tadd t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if (l_binary_flag && r_binary_flag )
+        {
+            LOG("l:binary,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\tadd t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        else if(l_binary_flag && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\tadd t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
         }
         reg_count_rv++;
         break;
@@ -563,31 +614,60 @@ switch (r_kind) {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
         if (r_flag_int)
         {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
+
         if (l_flag_int && r_flag_int){
-            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-            reg_count_rv++;
-        }else if (l_binary_flag)
-        {
-            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
-        }else if (r_binary_flag)
-        {
-            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-        }else if (r_binary_flag && l_binary_flag){
-            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
-            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+            LOG("l:int,r:int");
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            out << "\txori t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv) << ", 1\n";
+            reg_count_rv = reg_count_rv - 2;
         }
-        out << "\txori t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv);
-        out << ", 1" << "\n";
+        else if(l_flag_int && r_binary_flag )
+        {
+            LOG("l:int,r:binary");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            out << "\txori t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << ", 1\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if (l_binary_flag && r_binary_flag )
+        {
+            LOG("l:binary,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            out << "\txori t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << ", 1\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        else if(l_binary_flag && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            out << "\txori t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << ", 1\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        reg_count_rv++;
         break;
     case KOOPA_RBO_GE:
         if (l_flag_int)
@@ -595,31 +675,59 @@ switch (r_kind) {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
         if (r_flag_int)
         {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
+
         if (l_flag_int && r_flag_int){
-            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-            reg_count_rv++;
-        }else if (l_binary_flag)
-        {
-            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
-        }else if (r_binary_flag)
-        {
-            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-        }else if (r_binary_flag && l_binary_flag){
-            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
-            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+            LOG("l:int,r:int");
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            out << "\txori t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv) << ", 1\n";
+            reg_count_rv = reg_count_rv - 2;
         }
-        out << "\txori t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv);
-        out << ", 1" << "\n";
+        else if(l_flag_int && r_binary_flag )
+        {
+            LOG("l:int,r:binary");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            out << "\txori t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << ", 1\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if (l_binary_flag && r_binary_flag )
+        {
+            LOG("l:binary,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            out << "\txori t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << ", 1\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        else if(l_binary_flag && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            out << "\txori t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << ", 1\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
         reg_count_rv++;
         break;
     case KOOPA_RBO_LT:
@@ -628,28 +736,54 @@ switch (r_kind) {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
         if (r_flag_int)
         {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
+
         if (l_flag_int && r_flag_int){
-            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-            reg_count_rv++;
-        }else if (l_binary_flag)
+            LOG("l:int,r:int");
+            out << "\tslt t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - 2;
+        }
+        else if(l_flag_int && r_binary_flag )
         {
-            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
-        }else if (r_binary_flag)
+            LOG("l:int,r:binary");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\tslt t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if (l_binary_flag && r_binary_flag )
         {
-            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-        }else if (r_binary_flag && l_binary_flag){
-            out << "\tslt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
-            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+            LOG("l:binary,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\tslt t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        else if(l_binary_flag && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\tslt t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
         }
         reg_count_rv++;
         break;
@@ -659,104 +793,168 @@ switch (r_kind) {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
         if (r_flag_int)
         {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
+
         if (l_flag_int && r_flag_int){
-            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-            reg_count_rv++;
-        }else if (l_binary_flag)
+            LOG("l:int,r:int");
+            out << "\tsgt t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - 2;
+        }
+        else if(l_flag_int && r_binary_flag )
         {
-            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
-        }else if (r_binary_flag)
+            LOG("l:int,r:binary");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\tsgt t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if (l_binary_flag && r_binary_flag )
         {
-            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-        }else if (r_binary_flag && l_binary_flag){
-            out << "\tsgt t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
-            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+            LOG("l:binary,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\tsgt t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        else if(l_binary_flag && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\tsgt t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
         }
         reg_count_rv++;
         break;
     case KOOPA_RBO_DIV:
-        if (l_flag_int){
+        if (l_flag_int)
+        {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
         if (r_flag_int)
         {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
-        if (l_flag_int && r_flag_int)
+
+        if (l_flag_int && r_flag_int){
+            LOG("l:int,r:int");
+            out << "\tdiv t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - 2;
+        }
+        else if(l_flag_int && r_binary_flag )
         {
-            out << "\tdiv t" << incrementRegCount(reg_count_rv) << ", ";
-            out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-            out << "t" << incrementRegCount(reg_count_rv)-1 <<"\n";    //r_value
-        }else{
-            if (l_flag_int)
-            {
-                out << "\tdiv t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-1) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-2) <<"\n";    //r_value
-            };
-            if (r_flag_int)
-            {
-                out << "\tdiv t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
-            }
-            if (!r_flag_int && !l_flag_int){
-                out << "\tdiv t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
-            }
+            LOG("l:int,r:binary");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\tdiv t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if (l_binary_flag && r_binary_flag )
+        {
+            LOG("l:binary,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\tdiv t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        else if(l_binary_flag && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\tdiv t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
         }
         reg_count_rv++;
         break;
     case KOOPA_RBO_MOD:
-        if (l_flag_int){
+        if (l_flag_int)
+        {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
         if (r_flag_int)
         {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
-        if (l_flag_int && r_flag_int)
+
+        if (l_flag_int && r_flag_int){
+            LOG("l:int,r:int");
+            out << "\trem t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv-2);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - 2;
+        }
+        else if(l_flag_int && r_binary_flag )
         {
-            out << "\trem t" << incrementRegCount(reg_count_rv) << ", ";
-            out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-            out << "t" << incrementRegCount(reg_count_rv)-1 <<"\n";    //r_value
-        }else{
-            if (l_flag_int)
-            {
-                out << "\trem t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-1) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-2) <<"\n";    //r_value
-            };
-            if (r_flag_int)
-            {
-                out << "\trem t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
-            }
-            if (!r_flag_int && !l_flag_int){
-                out << "\trem t" << incrementRegCount(reg_count_rv) << ", ";
-                out << "t" << incrementRegCount(reg_count_rv-2) << ", " ;  //l_value
-                out << "t" << incrementRegCount(reg_count_rv-1) <<"\n";    //r_value
-            }
+            LOG("l:int,r:binary");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\trem t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if (l_binary_flag && r_binary_flag )
+        {
+            LOG("l:binary,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\trem t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(l_reg-1);
+            out << ", t" << incrementRegCount(r_reg-1) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        else if(l_binary_flag && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\trem t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
         }
         reg_count_rv++;
         break;
@@ -893,52 +1091,4 @@ static int incrementRegCount(int reg_count_rv) {
     //LOG("Current increment_reg_count_rv: " << increment_reg_count_rv);
     //LOG("Current reg_count_rv: " << reg_count_rv);
     return increment_reg_count_rv;
-}
-
-static void print_slice(const koopa_raw_slice_t &slice) {
-    for (uint32_t i = 0; i < slice.len; ++i) {
-        // 直接打印 buffer 中的 void* 指针
-        LOG("buffer[" << i << "] = " << slice.buffer[i]);
-    }
-}
-
-static void insertToGlobal(const void** buffer, uint32_t len, int reg_count_rv,std::vector<BufferInfo>& find_reg_info) {
-    if (len > 0) { // 确保 buffer 不为空
-        const void** last_element = new const void*[1];
-        last_element[0] = buffer[len - 1]; // 将最后一个元素存储到新的数组中
-
-        // 创建新的 BufferInfo，指向新的最后一个元素数组
-        BufferInfo new_info = {last_element, reg_count_rv, 1}; // 长度为 1
-        find_reg_info.push_back(new_info); // 添加到 vector 中
-    }
-}
-
-// 打印 myGlobal 的内容
-static void printGlobalContents(std::vector<BufferInfo>& find_reg_info) {
-    LOG("Global Pair contents:");
-    for (const auto& info : find_reg_info) {
-        LOG("reg_count_rv = " << info.reg_count_rv);
-        for (size_t i = 0; i < info.len; ++i) {
-            LOG("buffer[" << i << "] = " << info.buffer[i]);
-        }
-    }
-}
-
-static bool whether_replaced(int binary_reg){
-    if (reg_count_rv - binary_reg < 7)
-        return false;
-    else
-        return true;
-}
-
-static int findRegCountRv(const void* target, const std::vector<BufferInfo>& find_reg_info) {
-    for (const auto& info : find_reg_info) {
-        for (size_t i = 0; i < info.len; ++i) {
-            // 比较当前 BufferInfo 中的 buffer[i] 和目标指针
-            if (info.buffer[i] == target) {
-                return info.reg_count_rv; // 找到匹配，返回 reg_count_rv
-            }
-        }
-    }
-    return -1; // 如果未找到，返回一个标识值（例如 -1）
 }
