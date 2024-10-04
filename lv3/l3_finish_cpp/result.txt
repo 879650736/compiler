@@ -2,371 +2,586 @@ mode:-riscv
 Koopa IR successfully written to output.koopa
 
 kind.tag:12
-op:1
+op:0
+lhs:0x11a0bf0
+rhs:0x11a1db0
 l_used_by:
-buffer[0] = 0xca3b60
+buffer[0] = 0x11a08a0
 r_used_by:
-buffer[0] = 0xca3b60
-find_reg_info:
-Global Pair contents:
-reg_count_rv = 0
-buffer[0] = 0xca3b60
-lhs is INTEGER
-rhs is INTEGER
+buffer[0] = 0x11a08a0
 l_value:3
 r_value:0
-l_flag:1
-r_flag:1
-lhs:0xca3ee0
-rhs:0xca4160
-kind.tag:12
-op:7
-l_used_by:
-buffer[0] = 0xca55a0
-r_used_by:
-buffer[0] = 0xca55a0
+l_flag_int:1
+r_flag_int:1
+l_binary_flag:0
+r_binary_flag:0
+whether_replaced(l_binary_reg):0
+whether_replaced(r_binary_reg):0
 find_reg_info:
 Global Pair contents:
 reg_count_rv = 0
-buffer[0] = 0xca3b60
-reg_count_rv = 1
-buffer[0] = 0xca55a0
+buffer[0] = 0x11a08a0
 lhs is INTEGER
 rhs is INTEGER
+l:int,r:int
+kind.tag:12
+op:0
+lhs:0x11a20e0
+rhs:0x11a22d0
+l_used_by:
+buffer[0] = 0x11a2030
+r_used_by:
+buffer[0] = 0x11a2030
 l_value:0
 r_value:7
-l_flag:1
-r_flag:1
-lhs:0xca5650
-rhs:0xca4350
-kind.tag:12
-op:5
-l_used_by:
-buffer[0] = 0xca43c0
-buffer[1] = 0xca3660
-buffer[2] = 0xca37b0
-r_used_by:
-buffer[0] = 0xca43c0
-l_binary_reg:0
+l_flag_int:1
+r_flag_int:1
+l_binary_flag:0
+r_binary_flag:0
+whether_replaced(l_binary_reg):0
+whether_replaced(r_binary_reg):0
 find_reg_info:
 Global Pair contents:
 reg_count_rv = 0
-buffer[0] = 0xca3b60
+buffer[0] = 0x11a08a0
 reg_count_rv = 1
-buffer[0] = 0xca55a0
-reg_count_rv = 4
-buffer[0] = 0xca43c0
-lhs is BINARY
+buffer[0] = 0x11a2030
+lhs is INTEGER
 rhs is INTEGER
-l_value:0
-r_value:4
-l_flag:0
-r_flag:1
-lhs:0xca3b60
-rhs:0xca3f90
+l:int,r:int
 kind.tag:12
 op:0
+lhs:0x11a08a0
+rhs:0x11a1c70
 l_used_by:
-buffer[0] = 0xca43c0
-buffer[1] = 0xca3660
-buffer[2] = 0xca37b0
+buffer[0] = 0x11a1420
+buffer[1] = 0x11a2380
+buffer[2] = 0x11a24a0
+buffer[3] = 0x11a46b0
 r_used_by:
-buffer[0] = 0xca3660
+buffer[0] = 0x11a2380
 l_binary_reg:0
-find_reg_info:
-Global Pair contents:
-reg_count_rv = 0
-buffer[0] = 0xca3b60
-reg_count_rv = 1
-buffer[0] = 0xca55a0
-reg_count_rv = 4
-buffer[0] = 0xca43c0
-reg_count_rv = 6
-buffer[0] = 0xca3660
-lhs is BINARY
-rhs is INTEGER
 l_value:0
 r_value:4
-l_flag:0
-r_flag:1
-lhs:0xca3b60
-rhs:0xca36d0
-kind.tag:12
-op:12
-l_used_by:
-buffer[0] = 0xca3740
-r_used_by:
-buffer[0] = 0xca3740
-l_binary_reg:4
-r_binary_reg:6
+l_flag_int:0
+r_flag_int:1
+l_binary_flag:1
+r_binary_flag:0
+whether_replaced(l_binary_reg):0
+whether_replaced(r_binary_reg):0
 find_reg_info:
 Global Pair contents:
 reg_count_rv = 0
-buffer[0] = 0xca3b60
+buffer[0] = 0x11a08a0
 reg_count_rv = 1
-buffer[0] = 0xca55a0
-reg_count_rv = 4
-buffer[0] = 0xca43c0
-reg_count_rv = 6
-buffer[0] = 0xca3660
-reg_count_rv = 8
-buffer[0] = 0xca3740
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
 lhs is BINARY
-rhs is BINARY
-l_value:0
-r_value:6361984
-l_flag:0
-r_flag:0
-lhs:0xca43c0
-rhs:0xca3660
+rhs is INTEGER
+l:binary,r:int
 kind.tag:12
-op:8
+op:0
+lhs:0x11a1ce0
+rhs:0x11a08a0
 l_used_by:
-buffer[0] = 0xca37b0
+buffer[0] = 0x11a1420
 r_used_by:
-buffer[0] = 0xca43c0
-buffer[1] = 0xca3660
-buffer[2] = 0xca37b0
+buffer[0] = 0x11a1420
+buffer[1] = 0x11a2380
+buffer[2] = 0x11a24a0
+buffer[3] = 0x11a46b0
 r_binary_reg:0
-find_reg_info:
-Global Pair contents:
-reg_count_rv = 0
-buffer[0] = 0xca3b60
-reg_count_rv = 1
-buffer[0] = 0xca55a0
-reg_count_rv = 4
-buffer[0] = 0xca43c0
-reg_count_rv = 6
-buffer[0] = 0xca3660
-reg_count_rv = 8
-buffer[0] = 0xca3740
-reg_count_rv = 9
-buffer[0] = 0xca37b0
-lhs is INTEGER
-rhs is BINARY
 l_value:2
-r_value:6361984
-l_flag:1
-r_flag:0
-lhs:0xca3820
-rhs:0xca3b60
-kind.tag:12
-op:6
-l_used_by:
-buffer[0] = 0xca38e0
-r_used_by:
-buffer[0] = 0xca38e0
-r_binary_reg:9
+r_value:0
+l_flag_int:1
+r_flag_int:0
+l_binary_flag:0
+r_binary_flag:1
+whether_replaced(l_binary_reg):0
+whether_replaced(r_binary_reg):0
 find_reg_info:
 Global Pair contents:
 reg_count_rv = 0
-buffer[0] = 0xca3b60
+buffer[0] = 0x11a08a0
 reg_count_rv = 1
-buffer[0] = 0xca55a0
-reg_count_rv = 4
-buffer[0] = 0xca43c0
-reg_count_rv = 6
-buffer[0] = 0xca3660
-reg_count_rv = 8
-buffer[0] = 0xca3740
-reg_count_rv = 9
-buffer[0] = 0xca37b0
-reg_count_rv = 11
-buffer[0] = 0xca38e0
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
 lhs is INTEGER
 rhs is BINARY
-l_value:1
-r_value:6361984
-l_flag:1
-r_flag:0
-lhs:0xca3950
-rhs:0xca37b0
-kind.tag:12
-op:3
-l_used_by:
-buffer[0] = 0xca39c0
-r_used_by:
-buffer[0] = 0xca39c0
-l_binary_reg:11
-find_reg_info:
-Global Pair contents:
-reg_count_rv = 0
-buffer[0] = 0xca3b60
-reg_count_rv = 1
-buffer[0] = 0xca55a0
-reg_count_rv = 4
-buffer[0] = 0xca43c0
-reg_count_rv = 6
-buffer[0] = 0xca3660
-reg_count_rv = 8
-buffer[0] = 0xca3740
-reg_count_rv = 9
-buffer[0] = 0xca37b0
-reg_count_rv = 11
-buffer[0] = 0xca38e0
-reg_count_rv = 13
-buffer[0] = 0xca39c0
-lhs is BINARY
-rhs is INTEGER
-l_value:0
-r_value:5
-l_flag:0
-r_flag:1
-lhs:0xca38e0
-rhs:0xca3a30
+l:int,r:binary
 kind.tag:12
 op:0
+lhs:0x11a2380
+rhs:0x11a1420
 l_used_by:
-buffer[0] = 0xca3aa0
+buffer[0] = 0x11a2190
+buffer[1] = 0x11a2610
 r_used_by:
-buffer[0] = 0xca3aa0
-l_binary_reg:13
-find_reg_info:
-Global Pair contents:
-reg_count_rv = 0
-buffer[0] = 0xca3b60
-reg_count_rv = 1
-buffer[0] = 0xca55a0
-reg_count_rv = 4
-buffer[0] = 0xca43c0
-reg_count_rv = 6
-buffer[0] = 0xca3660
-reg_count_rv = 8
-buffer[0] = 0xca3740
-reg_count_rv = 9
-buffer[0] = 0xca37b0
-reg_count_rv = 11
-buffer[0] = 0xca38e0
-reg_count_rv = 13
-buffer[0] = 0xca39c0
-reg_count_rv = 15
-buffer[0] = 0xca3aa0
-lhs is BINARY
-rhs is INTEGER
-l_value:0
-r_value:6
-l_flag:0
-r_flag:1
-lhs:0xca39c0
-rhs:0xca56c0
-kind.tag:12
-op:0
-l_used_by:
-buffer[0] = 0xca57c0
-r_used_by:
-buffer[0] = 0xca57c0
-l_binary_reg:15
-find_reg_info:
-Global Pair contents:
-reg_count_rv = 0
-buffer[0] = 0xca3b60
-reg_count_rv = 1
-buffer[0] = 0xca55a0
-reg_count_rv = 4
-buffer[0] = 0xca43c0
-reg_count_rv = 6
-buffer[0] = 0xca3660
-reg_count_rv = 8
-buffer[0] = 0xca3740
-reg_count_rv = 9
-buffer[0] = 0xca37b0
-reg_count_rv = 11
-buffer[0] = 0xca38e0
-reg_count_rv = 13
-buffer[0] = 0xca39c0
-reg_count_rv = 15
-buffer[0] = 0xca3aa0
-reg_count_rv = 17
-buffer[0] = 0xca57c0
-lhs is BINARY
-rhs is INTEGER
+buffer[0] = 0x11a2610
+buffer[1] = 0x11a2190
+l_binary_reg:2
+r_binary_reg:3
 l_value:0
 r_value:0
-l_flag:0
-r_flag:1
-lhs:0xca3aa0
-rhs:0xca5830
-kind.tag:12
-op:0
-l_used_by:
-buffer[0] = 0xca58a0
-r_used_by:
-buffer[0] = 0xca58a0
-l_binary_reg:1
+l_flag_int:0
+r_flag_int:0
+l_binary_flag:1
+r_binary_flag:1
+whether_replaced(l_binary_reg):0
+whether_replaced(r_binary_reg):0
 find_reg_info:
 Global Pair contents:
 reg_count_rv = 0
-buffer[0] = 0xca3b60
+buffer[0] = 0x11a08a0
 reg_count_rv = 1
-buffer[0] = 0xca55a0
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
 reg_count_rv = 4
-buffer[0] = 0xca43c0
-reg_count_rv = 6
-buffer[0] = 0xca3660
-reg_count_rv = 8
-buffer[0] = 0xca3740
-reg_count_rv = 9
-buffer[0] = 0xca37b0
-reg_count_rv = 11
-buffer[0] = 0xca38e0
-reg_count_rv = 13
-buffer[0] = 0xca39c0
-reg_count_rv = 15
-buffer[0] = 0xca3aa0
-reg_count_rv = 17
-buffer[0] = 0xca57c0
-reg_count_rv = 19
-buffer[0] = 0xca58a0
-lhs is BINARY
-rhs is INTEGER
-l_value:0
-r_value:0
-l_flag:0
-r_flag:1
-lhs:0xca55a0
-rhs:0xca5910
-kind.tag:12
-op:11
-l_used_by:
-buffer[0] = 0xca5980
-r_used_by:
-buffer[0] = 0xca5980
-l_binary_reg:17
-r_binary_reg:19
-find_reg_info:
-Global Pair contents:
-reg_count_rv = 0
-buffer[0] = 0xca3b60
-reg_count_rv = 1
-buffer[0] = 0xca55a0
-reg_count_rv = 4
-buffer[0] = 0xca43c0
-reg_count_rv = 6
-buffer[0] = 0xca3660
-reg_count_rv = 8
-buffer[0] = 0xca3740
-reg_count_rv = 9
-buffer[0] = 0xca37b0
-reg_count_rv = 11
-buffer[0] = 0xca38e0
-reg_count_rv = 13
-buffer[0] = 0xca39c0
-reg_count_rv = 15
-buffer[0] = 0xca3aa0
-reg_count_rv = 17
-buffer[0] = 0xca57c0
-reg_count_rv = 19
-buffer[0] = 0xca58a0
-reg_count_rv = 21
-buffer[0] = 0xca5980
+buffer[0] = 0x11a2610
 lhs is BINARY
 rhs is BINARY
+l:binary,r:binary
+kind.tag:12
+op:0
+lhs:0x11a1e60
+rhs:0x11a1ed0
+l_used_by:
+buffer[0] = 0x11a2200
+r_used_by:
+buffer[0] = 0x11a2200
+l_value:3
+r_value:0
+l_flag_int:1
+r_flag_int:1
+l_binary_flag:0
+r_binary_flag:0
+whether_replaced(l_binary_reg):0
+whether_replaced(r_binary_reg):0
+find_reg_info:
+Global Pair contents:
+reg_count_rv = 0
+buffer[0] = 0x11a08a0
+reg_count_rv = 1
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
+reg_count_rv = 4
+buffer[0] = 0x11a2610
+reg_count_rv = 5
+buffer[0] = 0x11a2200
+lhs is INTEGER
+rhs is INTEGER
+l:int,r:int
+kind.tag:12
+op:0
+lhs:0x11a2430
+rhs:0x11a1fb0
+l_used_by:
+buffer[0] = 0x11a1f40
+r_used_by:
+buffer[0] = 0x11a1f40
 l_value:0
-r_value:6361984
-l_flag:0
-r_flag:0
-lhs:0xca57c0
-rhs:0xca58a0
+r_value:7
+l_flag_int:1
+r_flag_int:1
+l_binary_flag:0
+r_binary_flag:0
+whether_replaced(l_binary_reg):0
+whether_replaced(r_binary_reg):0
+find_reg_info:
+Global Pair contents:
+reg_count_rv = 0
+buffer[0] = 0x11a08a0
+reg_count_rv = 1
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
+reg_count_rv = 4
+buffer[0] = 0x11a2610
+reg_count_rv = 5
+buffer[0] = 0x11a2200
+reg_count_rv = 6
+buffer[0] = 0x11a1f40
+lhs is INTEGER
+rhs is INTEGER
+l:int,r:int
+kind.tag:12
+op:0
+lhs:0x11a08a0
+rhs:0x11a4720
+l_used_by:
+buffer[0] = 0x11a1420
+buffer[1] = 0x11a2380
+buffer[2] = 0x11a24a0
+buffer[3] = 0x11a46b0
+r_used_by:
+buffer[0] = 0x11a46b0
+l_binary_reg:0
+l_value:0
+r_value:4
+l_flag_int:0
+r_flag_int:1
+l_binary_flag:1
+r_binary_flag:0
+whether_replaced(l_binary_reg):1
+whether_replaced(r_binary_reg):0
+find_reg_info:
+Global Pair contents:
+reg_count_rv = 0
+buffer[0] = 0x11a08a0
+reg_count_rv = 1
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
+reg_count_rv = 4
+buffer[0] = 0x11a2610
+reg_count_rv = 5
+buffer[0] = 0x11a2200
+reg_count_rv = 6
+buffer[0] = 0x11a1f40
+reg_count_rv = 7
+buffer[0] = 0x11a46b0
+lhs is BINARY
+rhs is INTEGER
+l:binary_replace,r:int
+op:0
+lhs:0x11a0bf0
+rhs:0x11a1db0
+l_used_by:
+buffer[0] = 0x11a08a0
+r_used_by:
+buffer[0] = 0x11a08a0
+l_value:3
+r_value:0
+l_flag_int:1
+r_flag_int:1
+l_binary_flag:0
+r_binary_flag:0
+whether_replaced(l_binary_reg):1
+whether_replaced(r_binary_reg):0
+find_reg_info:
+Global Pair contents:
+reg_count_rv = 0
+buffer[0] = 0x11a08a0
+reg_count_rv = 1
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
+reg_count_rv = 4
+buffer[0] = 0x11a2610
+reg_count_rv = 5
+buffer[0] = 0x11a2200
+reg_count_rv = 6
+buffer[0] = 0x11a1f40
+reg_count_rv = 7
+buffer[0] = 0x11a46b0
+reg_count_rv = 8
+buffer[0] = 0x11a08a0
+lhs is INTEGER
+rhs is INTEGER
+l:int,r:int
+kind.tag:12
+op:0
+lhs:0x11a2510
+rhs:0x11a08a0
+l_used_by:
+buffer[0] = 0x11a24a0
+r_used_by:
+buffer[0] = 0x11a1420
+buffer[1] = 0x11a2380
+buffer[2] = 0x11a24a0
+buffer[3] = 0x11a46b0
+r_binary_reg:0
+l_value:2
+r_value:0
+l_flag_int:1
+r_flag_int:0
+l_binary_flag:0
+r_binary_flag:1
+whether_replaced(l_binary_reg):1
+whether_replaced(r_binary_reg):1
+find_reg_info:
+Global Pair contents:
+reg_count_rv = 0
+buffer[0] = 0x11a08a0
+reg_count_rv = 1
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
+reg_count_rv = 4
+buffer[0] = 0x11a2610
+reg_count_rv = 5
+buffer[0] = 0x11a2200
+reg_count_rv = 6
+buffer[0] = 0x11a1f40
+reg_count_rv = 7
+buffer[0] = 0x11a46b0
+reg_count_rv = 8
+buffer[0] = 0x11a08a0
+reg_count_rv = 8
+buffer[0] = 0x11a24a0
+lhs is INTEGER
+rhs is BINARY
+l:int,r:binary_replace
+op:0
+lhs:0x11a0bf0
+rhs:0x11a1db0
+l_used_by:
+buffer[0] = 0x11a08a0
+r_used_by:
+buffer[0] = 0x11a08a0
+l_value:3
+r_value:0
+l_flag_int:1
+r_flag_int:1
+l_binary_flag:0
+r_binary_flag:0
+whether_replaced(l_binary_reg):1
+whether_replaced(r_binary_reg):1
+find_reg_info:
+Global Pair contents:
+reg_count_rv = 0
+buffer[0] = 0x11a08a0
+reg_count_rv = 1
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
+reg_count_rv = 4
+buffer[0] = 0x11a2610
+reg_count_rv = 5
+buffer[0] = 0x11a2200
+reg_count_rv = 6
+buffer[0] = 0x11a1f40
+reg_count_rv = 7
+buffer[0] = 0x11a46b0
+reg_count_rv = 8
+buffer[0] = 0x11a08a0
+reg_count_rv = 8
+buffer[0] = 0x11a24a0
+reg_count_rv = 9
+buffer[0] = 0x11a08a0
+lhs is INTEGER
+rhs is INTEGER
+l:int,r:int
+kind.tag:12
+op:0
+lhs:0x11a2380
+rhs:0x11a1420
+l_used_by:
+buffer[0] = 0x11a2190
+buffer[1] = 0x11a2610
+r_used_by:
+buffer[0] = 0x11a2610
+buffer[1] = 0x11a2190
+l_binary_reg:2
+r_binary_reg:3
+l_value:0
+r_value:0
+l_flag_int:0
+r_flag_int:0
+l_binary_flag:1
+r_binary_flag:1
+whether_replaced(l_binary_reg):1
+whether_replaced(r_binary_reg):0
+find_reg_info:
+Global Pair contents:
+reg_count_rv = 0
+buffer[0] = 0x11a08a0
+reg_count_rv = 1
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
+reg_count_rv = 4
+buffer[0] = 0x11a2610
+reg_count_rv = 5
+buffer[0] = 0x11a2200
+reg_count_rv = 6
+buffer[0] = 0x11a1f40
+reg_count_rv = 7
+buffer[0] = 0x11a46b0
+reg_count_rv = 8
+buffer[0] = 0x11a08a0
+reg_count_rv = 8
+buffer[0] = 0x11a24a0
+reg_count_rv = 9
+buffer[0] = 0x11a08a0
+reg_count_rv = 9
+buffer[0] = 0x11a2610
+lhs is BINARY
+rhs is BINARY
+l:binary_replace,r:binary
+op:0
+lhs:0x11a08a0
+rhs:0x11a1c70
+l_used_by:
+buffer[0] = 0x11a1420
+buffer[1] = 0x11a2380
+buffer[2] = 0x11a24a0
+buffer[3] = 0x11a46b0
+r_used_by:
+buffer[0] = 0x11a2380
+l_binary_reg:0
+l_value:0
+r_value:4
+l_flag_int:0
+r_flag_int:1
+l_binary_flag:1
+r_binary_flag:0
+whether_replaced(l_binary_reg):1
+whether_replaced(r_binary_reg):0
+find_reg_info:
+Global Pair contents:
+reg_count_rv = 0
+buffer[0] = 0x11a08a0
+reg_count_rv = 1
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
+reg_count_rv = 4
+buffer[0] = 0x11a2610
+reg_count_rv = 5
+buffer[0] = 0x11a2200
+reg_count_rv = 6
+buffer[0] = 0x11a1f40
+reg_count_rv = 7
+buffer[0] = 0x11a46b0
+reg_count_rv = 8
+buffer[0] = 0x11a08a0
+reg_count_rv = 8
+buffer[0] = 0x11a24a0
+reg_count_rv = 9
+buffer[0] = 0x11a08a0
+reg_count_rv = 9
+buffer[0] = 0x11a2610
+reg_count_rv = 9
+buffer[0] = 0x11a2380
+lhs is BINARY
+rhs is INTEGER
+l:binary_replace,r:int
+op:0
+lhs:0x11a0bf0
+rhs:0x11a1db0
+l_used_by:
+buffer[0] = 0x11a08a0
+r_used_by:
+buffer[0] = 0x11a08a0
+l_value:3
+r_value:0
+l_flag_int:1
+r_flag_int:1
+l_binary_flag:0
+r_binary_flag:0
+whether_replaced(l_binary_reg):1
+whether_replaced(r_binary_reg):1
+find_reg_info:
+Global Pair contents:
+reg_count_rv = 0
+buffer[0] = 0x11a08a0
+reg_count_rv = 1
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
+reg_count_rv = 4
+buffer[0] = 0x11a2610
+reg_count_rv = 5
+buffer[0] = 0x11a2200
+reg_count_rv = 6
+buffer[0] = 0x11a1f40
+reg_count_rv = 7
+buffer[0] = 0x11a46b0
+reg_count_rv = 8
+buffer[0] = 0x11a08a0
+reg_count_rv = 8
+buffer[0] = 0x11a24a0
+reg_count_rv = 9
+buffer[0] = 0x11a08a0
+reg_count_rv = 9
+buffer[0] = 0x11a2610
+reg_count_rv = 9
+buffer[0] = 0x11a2380
+reg_count_rv = 10
+buffer[0] = 0x11a08a0
+lhs is INTEGER
+rhs is INTEGER
+l:int,r:int
+kind.tag:12
+op:0
+lhs:0x11a46b0
+rhs:0x11a24a0
+l_used_by:
+buffer[0] = 0x11a2680
+r_used_by:
+buffer[0] = 0x11a2680
+l_binary_reg:7
+r_binary_reg:8
+l_value:0
+r_value:0
+l_flag_int:0
+r_flag_int:0
+l_binary_flag:1
+r_binary_flag:1
+whether_replaced(l_binary_reg):0
+whether_replaced(r_binary_reg):0
+find_reg_info:
+Global Pair contents:
+reg_count_rv = 0
+buffer[0] = 0x11a08a0
+reg_count_rv = 1
+buffer[0] = 0x11a2030
+reg_count_rv = 2
+buffer[0] = 0x11a2380
+reg_count_rv = 3
+buffer[0] = 0x11a1420
+reg_count_rv = 4
+buffer[0] = 0x11a2610
+reg_count_rv = 5
+buffer[0] = 0x11a2200
+reg_count_rv = 6
+buffer[0] = 0x11a1f40
+reg_count_rv = 7
+buffer[0] = 0x11a46b0
+reg_count_rv = 8
+buffer[0] = 0x11a08a0
+reg_count_rv = 8
+buffer[0] = 0x11a24a0
+reg_count_rv = 9
+buffer[0] = 0x11a08a0
+reg_count_rv = 9
+buffer[0] = 0x11a2610
+reg_count_rv = 9
+buffer[0] = 0x11a2380
+reg_count_rv = 10
+buffer[0] = 0x11a08a0
+reg_count_rv = 11
+buffer[0] = 0x11a2680
+lhs is BINARY
+rhs is BINARY
+l:binary,r:binary
 kind.tag:16
 return.tag:12
 Koopa rv successfully written to output.koopa

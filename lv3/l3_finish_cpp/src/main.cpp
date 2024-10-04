@@ -22,6 +22,7 @@ static int l_binary_reg = 0;
 static int r_binary_reg = 0;
 static bool l_binary_flag = false;
 static bool r_binary_flag = false;
+static int reg_count_binary = 0;
 
 struct BufferInfo {
     const void** buffer;  // 存储 buffer 数组
@@ -36,9 +37,11 @@ static void print_slice(const koopa_raw_slice_t &slice);
 static void insertToGlobal(const void** buffer, uint32_t len, int reg_count_rv,std::vector<BufferInfo>& find_reg_pair);
 static void printGlobalContents(std::vector<BufferInfo>& find_reg_pair);
 static int findRegCountRv(const void* target, const std::vector<BufferInfo>& find_reg_info);
+static bool whether_replaced(int binary_reg);
 
 // 定义日志启用标志
 #define ENABLE_LOGGING 1 // 设置为 1 启用日志，设置为 0 禁用日志
+#define USE_KOOPA_IR 10   //设置为 1 启用输出的KOOPA_IR，设置为 0 使用test.koopa
 
 // 定义日志宏
 #if ENABLE_LOGGING
@@ -46,6 +49,8 @@ static int findRegCountRv(const void* target, const std::vector<BufferInfo>& fin
 #else
     #define LOG(msg) // 如果禁用日志，什么都不做
 #endif
+
+
 
 // 访问 raw program
 void Visit(const koopa_raw_program_t &program,std::ostream &out);
@@ -160,7 +165,7 @@ void Visit(const koopa_raw_return_t &ret,std::ostream &out) {
         out << "\tret\n";
         break;
         case KOOPA_RVT_BINARY:
-        out << "\tmv a0, t" << incrementRegCount(reg_count_rv -1) << "\n";
+        out << "\tmv a0, t" << incrementRegCount(reg_count_rv -2) << "\n";
         out << "\tret\n";
         break;
         default:
@@ -183,10 +188,12 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
     LOG("op:" << op);
     auto lhs = binary.lhs;
     auto rhs = binary.rhs;
+    LOG("lhs:" << lhs);
+    LOG("rhs:" << rhs);
     auto l_kind = lhs->kind.tag;
     auto r_kind = rhs->kind.tag;
-    auto l_name = lhs->name;
-    auto r_name = rhs->name;
+    //auto l_name = lhs->name;
+    //auto r_name = rhs->name;
     auto l_used_by = lhs->used_by;
     auto r_used_by = rhs->used_by;
     LOG("l_used_by:");
@@ -208,6 +215,7 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
         LOG("l_binary_reg:" << l_binary_reg);
         l_flag_int = false;
         l_binary_flag = true;
+        l_value = 0;
     }else{
         l_flag_int = false;
         l_binary_flag = false;
@@ -217,6 +225,7 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
     if (r_kind == KOOPA_RVT_INTEGER)
     {
         r_flag_int = true;
+        r_binary_flag = false;
         r_value = rhs->kind.data.integer.value;
     }
     else if (r_kind == KOOPA_RVT_BINARY)
@@ -225,12 +234,21 @@ void Visit(const koopa_raw_binary_t &binary,std::ostream &out) {
         LOG("r_binary_reg:" << r_binary_reg);
         r_flag_int = false;
         r_binary_flag = true;
+        r_value = 0;
     }else{
-        l_flag_int = false;
-        l_binary_flag = false;
-        l_value = 0;
+        r_flag_int = false;
+        r_binary_flag = false;
+        r_value = 0;
     }
 
+    LOG("l_value:" << l_value);
+    LOG("r_value:" << r_value);
+    LOG("l_flag_int:" << l_flag_int);
+    LOG("r_flag_int:" << r_flag_int);
+    LOG("l_binary_flag:" << l_binary_flag);
+    LOG("r_binary_flag:" << r_binary_flag);
+    LOG("whether_replaced(l_binary_reg):" << whether_replaced(l_binary_reg));
+    LOG("whether_replaced(r_binary_reg):" << whether_replaced(r_binary_reg));
     if(l_flag_int){
         insertToGlobal(l_used_by.buffer,l_used_by.len,reg_count_rv,find_reg_info);
     }else if(r_flag_int){
@@ -303,31 +321,106 @@ switch (r_kind) {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << l_value << "\n";
             reg_count_rv++;
+            reg_count_binary++;
         }
         if (r_flag_int)
         {
             out << "\tli t" << incrementRegCount(reg_count_rv) << ", ";
             out << r_value << "\n";
             reg_count_rv++;
-        }
-        if (l_flag_int && r_flag_int){
-            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-            reg_count_rv++;
-        }else if (l_binary_flag)
-        {
-            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
-            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
-        }else if (r_binary_flag)
-        {
-            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
-            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
-        }else if (r_binary_flag && l_binary_flag){
-            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(l_binary_reg);
-            out << ", t" << incrementRegCount(r_binary_reg) << "\n";
+            reg_count_binary++;
         }
 
-        out << "\tsnez t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+        if (l_flag_int && r_flag_int){
+            LOG("l:int,r:int");
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-2) << "\n";
+            out << "\tsnez t" << incrementRegCount(reg_count_rv-2) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            reg_count_rv = reg_count_rv - 2;
+        }
+
+        else if ((l_binary_flag && !whether_replaced(l_binary_reg)) && r_flag_int)
+        {
+            LOG("l:binary,r:int");
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
+            out << "\tsnez t" << incrementRegCount(reg_count_rv-1) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            reg_count_rv = reg_count_rv - 1;
+        }
+        else if ((l_binary_flag && !whether_replaced(l_binary_reg)) && (r_binary_flag && whether_replaced(r_binary_reg)))
+        {
+            LOG("l:binary,r:binary_replace");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
+            out << "\tsnez t" << incrementRegCount(reg_count_rv-1) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+
+        }
+        else if ((l_binary_flag && !whether_replaced(l_binary_reg)) && (r_binary_flag && !whether_replaced(r_binary_reg)))
+        {   
+            LOG("l:binary,r:binary");
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
+            out << ", t" << incrementRegCount(l_binary_reg) << "\n";
+            out << "\tsnez t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+
+        }
+
+        else if (l_flag_int && (r_binary_flag && !whether_replaced(r_binary_reg)))
+        {
+            LOG("l:int,r:binary");
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            out << "\tsnez t" << incrementRegCount(reg_count_rv-1) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            reg_count_rv = reg_count_rv - 1;
+        }
+        else if(l_flag_int && (r_binary_flag && whether_replaced(r_binary_reg)))
+        {
+            LOG("l:int,r:binary_replace");
+            reg_count_binary = 0;
+            Visit(rhs->kind.data.binary,out);
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-reg_count_binary);
+            out << ", t" << incrementRegCount(reg_count_rv-1) << "\n";
+            out << "\tsnez t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
+        else if ((l_binary_flag && whether_replaced(l_binary_reg)) && (r_binary_flag && whether_replaced(r_binary_reg)))
+        {
+            LOG("l:binary_replace,r:binary_replace");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            int l_reg = reg_count_rv;
+            LOG("l_reg:" << l_reg);
+            Visit(rhs->kind.data.binary,out);
+            int r_reg = reg_count_rv;
+            LOG("r_reg:" << r_reg);
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_reg-1);
+            out << ", t" << incrementRegCount(l_reg-1) << "\n";
+            out << "\tsnez t" << incrementRegCount(reg_count_rv-1) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            //reg_count_binary++;
+        }
+        else if ((l_binary_flag && whether_replaced(l_binary_reg)) && (r_binary_flag && !whether_replaced(r_binary_reg)))
+        {
+            LOG("l:binary_replace,r:binary");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(r_binary_reg);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            out << "\tsnez t" << incrementRegCount(reg_count_rv-1) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            //reg_count_binary++;
+        }
+        else if((l_binary_flag && whether_replaced(l_binary_reg)) && r_flag_int)
+        {
+            LOG("l:binary_replace,r:int");
+            reg_count_binary = 0;
+            Visit(lhs->kind.data.binary,out);
+            out << "\txor t" << incrementRegCount(reg_count_rv) << ", t" << incrementRegCount(reg_count_rv-1);
+            out << ", t" << incrementRegCount(reg_count_rv-reg_count_binary) << "\n";
+            out << "\tsnez t" << incrementRegCount(reg_count_rv-reg_count_binary) << ", t" << incrementRegCount(reg_count_rv) << "\n";
+            reg_count_rv = reg_count_rv - reg_count_binary;
+        }
+        
         reg_count_rv++;
         break;
     case KOOPA_RBO_EQ:
@@ -671,12 +764,8 @@ switch (r_kind) {
         break;
     }
     
-    LOG("l_value:" << l_value );
-    LOG("r_value:" << r_value);
-    LOG("l_flag:" << l_flag_int);
-    LOG("r_flag:" << r_flag_int);
-    LOG("lhs:" << lhs);
-    LOG("rhs:" << rhs);
+
+    /*
     if (l_name)
     {
         LOG("l_name:" << l_name);
@@ -685,7 +774,8 @@ switch (r_kind) {
     {
         LOG("r_name:" << r_name);
     }
-
+*/  
+    out << endl;
     
 }
 
@@ -741,7 +831,16 @@ cout << endl;
 
 
 
-std::ifstream file("output.koopa"); 
+std::ifstream file;
+    
+    #if USE_KOOPA_IR == 1
+        file.open("output.koopa");
+    #else
+        file.open("test.koopa");
+    #endif
+
+
+
 std::stringstream buffer;
 if (file.is_open()) {
         buffer << file.rdbuf();  // 读取文件内容到 buffer
@@ -749,7 +848,7 @@ if (file.is_open()) {
     } else {
         std::cerr << "Failed to open file for reading Koopa IR." << std::endl;
         return 1;  // 失败时退出
-    }
+}
 
     std::string str = buffer.str(); 
     const char* c_str = str.c_str();
@@ -823,6 +922,13 @@ static void printGlobalContents(std::vector<BufferInfo>& find_reg_info) {
             LOG("buffer[" << i << "] = " << info.buffer[i]);
         }
     }
+}
+
+static bool whether_replaced(int binary_reg){
+    if (reg_count_rv - binary_reg < 7)
+        return false;
+    else
+        return true;
 }
 
 static int findRegCountRv(const void* target, const std::vector<BufferInfo>& find_reg_info) {
