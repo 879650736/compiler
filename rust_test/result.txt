@@ -1,0 +1,21 @@
+mode:-riscv
+Koopa IR successfully written to output.koopa
+
+kind.tag:12
+op:5
+lhs:0x1a3f5d0
+rhs:0x1a3f640
+l_value:9
+r_value:3
+l_flag_int:1
+r_flag_int:1
+l_binary_flag:0
+r_binary_flag:0
+lhs is INTEGER
+rhs is INTEGER
+l:int,r:int
+kind.tag:16
+return.tag:12
+Koopa rv successfully written to output.koopa
+
+finish
